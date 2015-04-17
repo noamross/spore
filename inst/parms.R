@@ -1,0 +1,21 @@
+parms = list(
+	max_i = 20,
+	lambda = 0.001,
+	lambda_ex = 0.1,
+	alpha = 0.01,
+	mu = 0.01,
+	r = 0.5,
+	d = 0.1,
+	K = 100,
+	init_pop = 100,
+	time_max = 30,
+	prevent_inf = 0,
+	prevent_ex = 0,
+	macro_timestep = 0.5,
+	micro_timestep = 0.1,
+	micro_relax_steps = 3,
+	project = TRUE,
+	n_sims = 100,
+	micro_record = file("micro.txt", open="w"),
+	macro_record = file("macro.txt", open="w")
+)
