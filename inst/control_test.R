@@ -54,5 +54,5 @@ parms$control_max = 1000
 control_runs <- mclapply(1:50, function(x) macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0))
 
 parms$c = 10000
-expensive_control_run = mclapply(1:50, function(x) (macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0))
+expensive_control_run = mclapply(1:50, function(x) macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0))
 
