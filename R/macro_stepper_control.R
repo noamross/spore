@@ -49,7 +49,7 @@ macro_state_c_runopt = function(macro_state_init, parms, shadow_state_init, time
   shadow_states[1,] = shadow_state_init
 
   step = 1
-  p <- progress_estimated(length(times))
+  if(parms$progress) p <- progress_estimated(length(times))
   time = time[step]
 
   opt = determine_control(macro_state = macro_state_init, parms = parms,
@@ -71,7 +71,7 @@ macro_state_c_runopt = function(macro_state_init, parms, shadow_state_init, time
   shadow_states[2,] = shadow_states[1,] + shadow_derivs[1,]*parms$macro_timestep
   last_deriv_est = opt$macro_state_deriv
 
-  p$tick()$print()
+  if(parms$progress) p$tick()$print()
   for(step in seq_along(times)[-1]) {
 
     time = times[step]
@@ -95,7 +95,7 @@ macro_state_c_runopt = function(macro_state_init, parms, shadow_state_init, time
     }
 
     last_deriv_est = opt$macro_state_deriv
-    p$tick()$print()
+    if(parms$progress) p$tick()$print()
   }
   return(cbind(times, macro_states, macro_derivs, macro_second_derivs, shadow_states, shadow_derivs, controls))
 }
