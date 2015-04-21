@@ -93,7 +93,7 @@ macro_state_c_runopt = function(macro_state_init, parms, shadow_state_init, time
       macro_states[step + 1, ] = opt$macro_state_next + (alpha*opt$macro_state_deriv + (1 - alpha)*last_deriv_est)*project_timestep
       shadow_states[step + 1, ] = shadow_states[step,] + (0.5 * shadow_derivs[step - 1,] + 1.5 * shadow_derivs[step,]) * parms$macro_timestep
     }
-
+    last_deriv_est2 = last_deriv_est
     last_deriv_est = opt$macro_state_deriv
     if(parms$progress) p$tick()$print()
   }
@@ -131,8 +131,10 @@ determine_control = function(macro_state, parms, shadow_state, time, control_gue
 second_deriv_from_3pts = function(x, y) {
   p = poly.calc(x, y)
   if(is.list(p)) {
-    return(sapply(p, function(x) `[`(x,3)))
+    dd =sapply(p, function(x) `[`(x,3))
   } else {
-    return(p[3])
+    dd = p[3]
   }
+    dd[is.na(dd)] = 0
+    return(dd)
 }

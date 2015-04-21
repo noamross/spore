@@ -22,15 +22,15 @@ parms = list(
   prevent_inf = 0,
   prevent_ex = 0,
   macro_timestep = 1,
-  micro_timestep = 0.125,
-  micro_relax_steps = 1,
+  micro_timestep = 0.025,
+  micro_relax_steps = 3,
   project = FALSE,
-  n_sims = 100,
+    n_sims = 500,
   control_min = 0,
   control_max = 1000,
   v = 10,
   c = 100,
-  progress = FALSE
+  progress = TRUE
   #micro_record = file("micro.txt", open="w+")
   #  macro_record = file("macro.txt", open="w")
 )
@@ -48,11 +48,22 @@ time = 0
 options(mc.cores=2)
 parms$control_max = 0
 
-no_control_runs <- mclapply(1:50, function(x) macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0))
+no_control_runs <- mclapply(1:50, function(x) {
+  out = try(macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0)
+  if ("try-error" %in% class(out)) file.rename('last.dump.rda', paste0('no_control_runs', x))
+  return(out)
+})
 
 parms$control_max = 1000
-control_runs <- mclapply(1:50, function(x) macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0))
+control_runs <- mclapply(1:50, function(x) {
+  out = try(macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0)
+  if ("try-error" %in% class(out)) file.rename('last.dump.rda', paste0('control_runs', x))
+  return(out)
+})
 
 parms$c = 10000
-expensive_control_run = mclapply(1:50, function(x) macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0))
-
+expensive_control_run = mclapply(1:50, function(x) {
+  out = try(macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0)
+  if ("try-error" %in% class(out)) file.rename('last.dump.rda', paste0('expensive_control_runs', x))
+  return(out)
+})
