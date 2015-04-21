@@ -6,6 +6,7 @@ library(noamtools)
 library(nloptr)
 library(polynom)
 library(parallel)
+library(rlist)
 
 closeAllConnections()
 parms = list(
@@ -18,14 +19,14 @@ parms = list(
   d = 0.01,
   K = 100,
   init_pop = 100,
-  time_max = 50,
+  time_max = 20,
   prevent_inf = 0,
   prevent_ex = 0,
-  macro_timestep = 1,
+  macro_timestep = 0.25,
   micro_timestep = 0.025,
-  micro_relax_steps = 3,
+  micro_relax_steps = 1,
   project = FALSE,
-    n_sims = 500,
+  n_sims = 500,
   control_min = 0,
   control_max = 1000,
   v = 10,
@@ -45,25 +46,51 @@ time = 0
 # Rprof(NULL)
 
 
-options(mc.cores=2)
+options(mc.cores=20)
+options(error = quote({dump.frames(to.file = TRUE)}))
 parms$control_max = 0
 
 no_control_runs <- mclapply(1:50, function(x) {
-  out = try(macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0)
-  if ("try-error" %in% class(out)) file.rename('last.dump.rda', paste0('no_control_runs', x))
+  out = try(macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0))
+  if ("try-error" %in% class(out)) file.rename('last.dump.rda', paste0('no_control_runs', x, ".rda"))
   return(out)
 })
+saveRDS(no_control_runs, "no_control_runs.rds", compress=FALSE)
 
 parms$control_max = 1000
 control_runs <- mclapply(1:50, function(x) {
-  out = try(macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0)
+  out = try(macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0))
   if ("try-error" %in% class(out)) file.rename('last.dump.rda', paste0('control_runs', x))
   return(out)
 })
+saveRDS(control_runs, "control_runs.rds", compress=FALSE)
 
 parms$c = 10000
-expensive_control_run = mclapply(1:50, function(x) {
-  out = try(macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0)
+expensive_control_runs = mclapply(1:50, function(x) {
+  out = try(macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0))
   if ("try-error" %in% class(out)) file.rename('last.dump.rda', paste0('expensive_control_runs', x))
   return(out)
 })
+
+saveRDS(expensive_control_runs, "expensive_control_runs.rds", compress=FALSE)
+
+
+no_control_runs = readRDS('no_control_runs.rds')
+control_runs = readRDS('control_runs.rds')
+expensive_control_runs = readRDS('expensive_control_runs.rds')
+process_runs = . %>%
+  list.filter(!("try-error" %in% class(.))) %>%
+  lapply(., as.data.frame) %>%
+  list.map(cbind(run=.i, .)) %>%
+  rbind_all %>%
+  rename(run=run, time=times, N=V2, P=V3, dN=V4, dp=V5, ddN=V6, ddP=V7, S1 = V8, S2=V9, dS1=V10, dS2=V11, h = V12) %>%
+  gather(key=variable, value=value, -run, - time)
+
+no_control_runs_df = process_runs(no_control_runs)
+control_runs_df = process_runs(control_runs)
+expensive_control_runs_df = process_runs(expensive_control_runs)
+library(ggplot2)
+
+ggplot(subset(no_control_runs_df, variable %in% c("N", "P")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(alpha = 0.5)
+ggplot(subset(control_runs_df, variable %in% c("N", "P")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(alpha = 0.5)
+ggplot(subset(expensive_control_runs_df, variable %in% c("N", "P")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(alpha = 0.5)
