@@ -74,13 +74,3 @@ micro_state_c.record = function(micro_state, control, time, connection, run, sta
 	writeChar(paste(c(run, start, time, control, micro_state, "\n"), collapse=" "), con=connection, eos=NULL)
 }
 
-
-lift.macro_state = function(macro_state) {
-  macro_state = pmax(macro_state, c(0,0))
-	vals = rpois(round_rand(macro_state[1]), macro_state[2]/macro_state[1])
-	as.integer(table(factor(vals, levels = 0:max(c(parms$max_i, max(vals))))))
-}
-
-restrict.micro_state = function(micro_state) {
- c(sum(micro_state), 	sum(micro_state * (seq_along(micro_state) -1)))
-}
