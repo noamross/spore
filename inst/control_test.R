@@ -1,4 +1,4 @@
-devtools::load_all(".")
+#devtools::load_all(".")
 library(dplyr)
 library(tidyr)
 library(magrittr)
@@ -45,9 +45,9 @@ time = 0
 parms$control_max = 1000
 
  #Rprof('opt.prof'
-for(i in 1:50) {
-a = determine_control(macro_state = macro_state, parms = parms, shadow_state = shadow_state, time = 0, control_guess = 0)
-}
+options(error=recover)
+#a = determine_control(macro_state = macro_state, parms = parms, shadow_state = shadow_state, time = 0, control_guess = 0)
+b = macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0)
 
 options(mc.cores=20)
 #options(error = quote({dump.frames(to.file = TRUE)}))
