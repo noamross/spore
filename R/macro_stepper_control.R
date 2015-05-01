@@ -1,30 +1,30 @@
 macro_state_c.stepfull = function(macro_state, parms, control, time) {
-		macro_states = sapply(1:parms$n_sims, function(run) {
-			micro_state = lift.macro_state(macro_state)
-      micro_state = micro_state_c.stepto(micro_state, parms, control, time = time, timeto = time + parms$macro_timestep, record = parms$micro_record, run = run)
-			return(restrict.micro_state(micro_state))
-		})
-		macro_state = rowMeans(macro_states)
-		return(macro_state)
+  macro_states = sapply(1:parms$n_sims, function(run) {
+    micro_state = lift.macro_state(macro_state)
+    micro_state = micro_state_c.stepto(micro_state, parms, control, time = time, timeto = time + parms$macro_timestep, record = parms$micro_record, run = run)
+    return(restrict.micro_state(micro_state))
+  })
+  macro_state = rowMeans(macro_states)
+  return(macro_state)
 }
 
 macro_state_c.stepproject = function(macro_state, parms, control, time) {
-		macro_states = sapply(1:parms$n_sims, function(run) {
-			micro_state = lift.macro_state(macro_state)
-		  relaxed_time = time + parms$micro_timestep*parms$micro_relax_steps
-      micro_state_relaxed = micro_state.stepto(micro_state, parms, control, time = time, timeto = relaxed_time, run = run)
-      next_time = relaxed_time + parms$micro_timestep
-      micro_state_next = micro_state.stepto(micro_state_relaxed, parms, control, time = relaxed_time, timeto = next_time, run = run)
+  macro_states = sapply(1:parms$n_sims, function(run) {
+    micro_state = lift.macro_state(macro_state)
+    relaxed_time = time + parms$micro_timestep*parms$micro_relax_steps
+    micro_state_relaxed = micro_state.stepto(micro_state, parms, control, time = time, timeto = relaxed_time, run = run)
+    next_time = relaxed_time + parms$micro_timestep
+    micro_state_next = micro_state.stepto(micro_state_relaxed, parms, control, time = relaxed_time, timeto = next_time, run = run)
 
-			macro_state_relaxed = restrict.micro_state(micro_state_relaxed)
-			macro_state_next = restrict.micro_state(micro_state_next)
+    macro_state_relaxed = restrict.micro_state(micro_state_relaxed)
+    macro_state_next = restrict.micro_state(micro_state_next)
 
-			return(macro_state_relaxed + ((macro_state_next - macro_state_relaxed) /
-																		(next_time - relaxed_time)) *
-						 	                     (time + parms$macro_timestep - next_time))
-		})
-		macro_state = rowMeans(macro_states)
-		return(macro_state)
+    return(macro_state_relaxed + ((macro_state_next - macro_state_relaxed) /
+                                    (next_time - relaxed_time)) *
+             (time + parms$macro_timestep - next_time))
+  })
+  macro_state = rowMeans(macro_states)
+  return(macro_state)
 }
 
 
@@ -61,13 +61,13 @@ macro_state_c_runopt = function(macro_state_init, parms, shadow_state_init, time
     c(time, time + parms$micro_relax_steps*parms$micro_timestep, time + (parms$micro_relax_steps + 1) * parms$micro_timestep),
     rbind(macro_state_init, opt$macro_state_relaxed, opt$macro_state_next)
   )
-    rbind(macro_state_init, opt$macro_state_relaxed, opt$macro_state_next)
+  rbind(macro_state_init, opt$macro_state_relaxed, opt$macro_state_next)
   macro_states[2,] = opt$macro_state_next + macro_derivs[1,] * project_timestep
   shadow_derivs[1,1] = -(parms$v +
-    shadow_state[1] * macro_second_derivs[1,1] / macro_derivs[1,1] +
-    shadow_state[2] * macro_second_derivs[1,2] / macro_derivs[1,1])
+                           shadow_state[1] * macro_second_derivs[1,1] / macro_derivs[1,1] +
+                           shadow_state[2] * macro_second_derivs[1,2] / macro_derivs[1,1])
   shadow_derivs[1,2] = -(shadow_state[1] * macro_second_derivs[1,1] / macro_derivs[1,2] +
-    shadow_state[2] * macro_second_derivs[1,2] / macro_derivs[1,2])
+                           shadow_state[2] * macro_second_derivs[1,2] / macro_derivs[1,2])
   shadow_states[2,] = shadow_states[1,] + shadow_derivs[1,]*parms$macro_timestep
   last_deriv_est = opt$macro_state_deriv
 
@@ -83,11 +83,11 @@ macro_state_c_runopt = function(macro_state_init, parms, shadow_state_init, time
     macro_second_derivs[step,] = (opt$macro_state_deriv - last_deriv_est)/parms$macro_timestep
 
     shadow_derivs[step, 1] = -(parms$v +
-      shadow_states[step, 1] * macro_second_derivs[step,1] / macro_derivs[step,1] +
-      shadow_states[step, 2] * macro_second_derivs[step,2] / macro_derivs[step,1])
+                                 shadow_states[step, 1] * macro_second_derivs[step,1] / macro_derivs[step,1] +
+                                 shadow_states[step, 2] * macro_second_derivs[step,2] / macro_derivs[step,1])
     shadow_derivs[step,2] =
       -(shadow_states[step, 1] * macro_second_derivs[step ,1] / macro_derivs[step ,2] +
-      shadow_states[step, 2] * macro_second_derivs[step ,2] / macro_derivs[step ,2])
+          shadow_states[step, 2] * macro_second_derivs[step ,2] / macro_derivs[step ,2])
 
     if(step != length(times)) {
       macro_states[step + 1, ] = opt$macro_state_next + (alpha*opt$macro_state_deriv + (1 - alpha)*last_deriv_est)*project_timestep
@@ -103,23 +103,32 @@ macro_state_c_runopt = function(macro_state_init, parms, shadow_state_init, time
 #' @import nloptr
 #' @export
 determine_control = function(macro_state, parms, shadow_state, time, control_guess) {
-  .savevals = new.env(parent=emptyenv())
+  .savevals = new.env()
+
   Hamiltonian = function(control, macro_state, parms, shadow_state, time) {
     if (control < parms$control_min | control > parms$control_max) return(Inf)
-    vals = sapply(X = 1:parms$n_sims, FUN = function(run) {
-      micro_state = lift.macro_state(macro_state)
-      relaxed_time = time + parms$micro_timestep*parms$micro_relax_steps
-      micro_state_relaxed = micro_state_c.stepto(micro_state, parms, control, time = time, timeto = relaxed_time, run = run, record=parms$micro_record)
-      next_time = relaxed_time + parms$micro_timestep
-      micro_state_next = micro_state_c.stepto(micro_state_relaxed, parms, control, time = relaxed_time, timeto = next_time, run = run, record=parms$micro_record)
-      macro_state_relaxed = restrict.micro_state(micro_state_relaxed)
-      macro_state_next = restrict.micro_state(micro_state_next)
-      return(c(macro_state_relaxed, macro_state_next))
-    })
-    .savevals$macro_state_relaxed = rowMeans(vals[1:2,])
-    .savevals$macro_state_next = rowMeans(vals[3:4,])
-    .savevals$macro_state_deriv = (.savevals$macro_state_next - .savevals$macro_state_relaxed)/parms$micro_timestep
-    H = parms$v * macro_state[1] - parms$c * control + shadow_state[1] * .savevals$macro_state_deriv[1] + shadow_state[2] * .savevals$macro_state_deriv[2]
+ #   .savevals$macro_state_deriv = c(0,0)
+ #   count = 1
+#    while(any(.savevals$macro_state_deriv == 0)) {
+      vals = sapply(X = 1:parms$n_sims, FUN = function(run) {
+        micro_state = lift.macro_state(macro_state)
+        relaxed_time = time + parms$micro_timestep*parms$micro_relax_steps
+        micro_state_relaxed = micro_state_c.stepto(micro_state, parms, control, time = time, timeto = relaxed_time, run = run, record=parms$micro_record)
+        next_time = relaxed_time + parms$micro_timestep
+        micro_state_next = micro_state_c.stepto(micro_state_relaxed, parms, control, time = relaxed_time, timeto = next_time, run = run, record=parms$micro_record)
+        macro_state_relaxed = restrict.micro_state(micro_state_relaxed)
+        macro_state_next = restrict.micro_state(micro_state_next)
+        return(c(macro_state_relaxed, macro_state_next))
+      })
+      .savevals$macro_state_relaxed = rowMeans(vals[1:2,])
+      .savevals$macro_state_next = rowMeans(vals[3:4,])
+      .savevals$macro_state_deriv = (.savevals$macro_state_next - .savevals$macro_state_relaxed)/parms$micro_timestep
+ #     cat(count, time, .savevals$macro_state_deriv, "\n", sep=", ")
+#      count = count + 1
+#    }
+    H = parms$v * macro_state[1] - parms$c * control +
+      shadow_state[1] * .savevals$macro_state_deriv[1] +
+      shadow_state[2] * .savevals$macro_state_deriv[2]
     return(-H)
   }
   opt = nloptr(x0 = control_guess, eval_f = Hamiltonian, lb = parms$control_min, ub = parms$control_max, opts = list(algorithm = "NLOPT_LN_SBPLX", xtol_rel = 1e-3, xtol_abs=1e-3), macro_state=macro_state, parms=parms, shadow_state=shadow_state, time=time)
@@ -135,6 +144,6 @@ second_deriv_from_3pts = function(x, y) {
   } else {
     dd = p[3]
   }
-    dd[is.na(dd)] = 0
-    return(dd)
+  dd[is.na(dd)] = 0
+  return(dd)
 }
