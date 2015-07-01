@@ -15,19 +15,20 @@ parms = list(
   lambda = 0.001,
   lambda_ex = 0.2,
   alpha = 0.1,
+  alpha_power = 1,
   mu = 0.01,
   r = 0.5,
   d = 0.01,
   K = 100,
   init_pop = 100,
-  time_max = 2,
+  time_max = 40,
   prevent_inf = 0,
   prevent_ex = 0,
-  macro_timestep = 0.25,
-  micro_timestep = 0.025,
+  macro_timestep = 1,
+  micro_timestep = 0.1,
   micro_relax_steps = 3,
   project = FALSE,
-  n_sims = 100,
+  n_sims = 50,
   control_min = 0,
   control_max = 1000,
   v = 50,
@@ -40,9 +41,9 @@ parms = list(
 
 micro_state = c(100, 0, rep(0, parms$max_i - 1))
 macro_state = restrict.micro_state(micro_state)
-shadow_state = c(100, -100)
+shadow_state = c(99.66243, -384.3681)
 time = 0
-parms$control_max = 1000
+#parms$control_max = 0
 
  #Rprof('opt.prof'
 options(error=recover)
@@ -60,7 +61,7 @@ no_control_runs <- mclapply(1:50, function(x) {
   if ("try-error" %in% class(out)) out = list(out, myseed)
   return(out)
 })
-saveRDS(no_control_runs, "no_control_runs.rds", compress=FALSE)
+saveRDS(no_control_runs, "no_control_runs_sh.rds", compress=FALSE)
 
 parms$control_max = 1000
 control_runs <- mclapply(1:50, function(x) {
@@ -70,7 +71,7 @@ control_runs <- mclapply(1:50, function(x) {
   if ("try-error" %in% class(out)) out = list(out, myseed)
   return(out)
 })
-saveRDS(control_runs, "control_runs.rds", compress=FALSE)
+saveRDS(control_runs, "control_runs_sh.rds", compress=FALSE)
 
 parms$c = 10000
 expensive_control_runs = mclapply(1:50, function(x) {
@@ -81,7 +82,7 @@ expensive_control_runs = mclapply(1:50, function(x) {
   return(out)
 })
 
-saveRDS(expensive_control_runs, "expensive_control_runs.rds", compress=FALSE)
+saveRDS(expensive_control_runs, "expensive_control_runs_sh.rds", compress=FALSE)
 
 
 no_control_runs = readRDS('no_control_runs.rds')
@@ -103,3 +104,7 @@ library(ggplot2)
 ggplot(subset(no_control_runs_df, variable %in% c("N", "P")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(alpha = 0.5)
 ggplot(subset(control_runs_df, variable %in% c("N", "P")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(alpha = 0.5)
 ggplot(subset(expensive_control_runs_df, variable %in% c("N", "P")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(alpha = 0.5)
+
+a = process_runs(list(b))
+ggplot(subset(a, variable %in% c("N", "P")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(alpha = 0.5)
+ggplot(subset(a, variable %in% c("N", "P", "h")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(alpha = 0.5)

@@ -7,7 +7,7 @@ micro_state_c.step = function(micro_state, parms, control, time) {
 		P_inf = (parms$lambda * infections +
 		           parms$lambda_ex * exp(-control))*N,
 		P_rec = parms$mu * infections,
-		P_die = parms$alpha * infections + (parms$d * N),
+		P_die = parms$alpha * (infections^parms$alpha_power) + (parms$d * N),
 		P_birth = max(parms$r * N * (1 - N/parms$K), 0)
 	)
 
@@ -25,7 +25,7 @@ micro_state_c.step = function(micro_state, parms, control, time) {
 		micro_state[i+1] = micro_state[i+1] - 1
 		micro_state[i] = micro_state[i] + 1
 	}, {
-		i = sample(is, 1, prob=parms$alpha * is * micro_state + parms$d*micro_state)
+		i = sample(is, 1, prob=parms$alpha * (is^parms$alpha_power) * micro_state + parms$d*micro_state)
 		micro_state[i+1] = micro_state[i+1] - 1
 	}, {
 		micro_state[1] = micro_state[1] + 1
@@ -42,7 +42,7 @@ rates.micro_state = function(micro_state, parms, control) {
 		P_inf = (parms$lambda * infections +
 		           parms$lambda_ex * exp(-control))*N,
 		P_rec = parms$mu * infections,
-		P_die = parms$alpha * infections + (parms$d * N),
+		P_die = parms$alpha * infections^parms$alpha_power + (parms$d * N),
 		P_birth = parms$r * N * (1 - N/parms$K)
 	)
 	return(rates)

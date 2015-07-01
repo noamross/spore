@@ -1,0 +1,37 @@
+## The Parasite Exclusion Problem
+
+(Current-time) Hamiltonian:
+
+$$\begin{align}
+\mathcal{H} = &vN - ch + \\
+&\nu_1 \left( rN(1 - N/K) - \alpha P - d N \right) + \\
+&\nu_2 \left(\lambda P N - \mu P - d P - \alpha P - \alpha (P^2)/N + e^{-h}  N \lambda_{ex} \right)
+\end{align}$$
+
+Profit function (continuous provision of ecosystem pervice per individual host minus control cost):
+
+$$vN - ch$$
+
+System dynamics ($N$ = hosts, $P$ = parasites):
+
+$$\begin{align}
+\frac{dN}{dt} &= r N (1 - N/K) - \alpha P - d N \\
+\frac{dP}{dt} &= \lambda P N - \mu P - d P - \alpha P - \alpha P^2/N + e^{-h} N \lambda_{ex}
+\end{align}$$ 
+
+Shadow price dynamics (via adjoint principle):
+
+$$\begin{align}
+\frac{d\nu_1}{dt} &= -v - \nu_1 \left(r - d - 2r \frac{N}{K}\right) - \nu_2 \left(\lambda P + \alpha \frac{P^2}{N^2} + e^{-h} \lambda_ex \right) + \delta \nu_1 \\
+\frac{d\nu_2}{dt} &= \nu_1 \alpha - \nu_2 \left(\lambda N - \mu - d - \alpha - \frac{2 \alpha P}{N} \right) + \delta \nu_2
+\end{align}$$
+
+Control (via maximum principle):
+
+$$ h \frac{d\mathcal H}{dh} = 0 = h \left( -c - \nu_2 e^{-h} N * \lambda_{ex} \right)$$
+
+$$h = \left[0, \, \log{\frac{-\nu_2 * N * \lambda_{ex}}{c}}\right]$$
+
+
+
+
