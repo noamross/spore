@@ -15,6 +15,7 @@ parms = list(
   lambda = 0.001,
   lambda_ex = 0.2,
   alpha = 0.1,
+  alpha_power = 1,
   mu = 0.01,
   r = 0.5,
   d = 0.01,
@@ -23,8 +24,8 @@ parms = list(
   time_max = 40,
   prevent_inf = 0,
   prevent_ex = 0,
-  macro_timestep = 0.25,
-  micro_timestep = 0.025,
+  macro_timestep = 1,
+  micro_timestep = 0.1,
   micro_relax_steps = 3,
   project = FALSE,
   n_sims = 500,
@@ -40,9 +41,9 @@ parms = list(
 
 micro_state = c(100, 0, rep(0, parms$max_i - 1))
 macro_state = restrict.micro_state(micro_state)
-shadow_state = c(shadow_state = c(99.66243, -384.3681))
+shadow_state = c(99.66243, -384.3681)
 time = 0
-parms$control_max = 1000
+#parms$control_max = 0
 
  #Rprof('opt.prof'
 options(error=recover)
@@ -53,14 +54,14 @@ options(mc.cores=20)
 #options(error = quote({dump.frames(to.file = TRUE)}))
 parms$control_max = 0
 
-# no_control_runs <- mclapply(1:50, function(x) {
-#   myseed = sample.int(1e6,1)
-#   set.seed(myseed)
-#   out = try(macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0))
-#   if ("try-error" %in% class(out)) out = list(out, myseed)
-#   return(out)
-# })
-# saveRDS(no_control_runs, "no_control_runs.rds", compress=FALSE)
+no_control_runs <- mclapply(1:50, function(x) {
+  myseed = sample.int(1e6,1)
+  set.seed(myseed)
+  out = try(macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0))
+  if ("try-error" %in% class(out)) out = list(out, myseed)
+  return(out)
+})
+saveRDS(no_control_runs, "no_control_runs_sh.rds", compress=FALSE)
 
 parms$control_max = 1000
 control_runs <- mclapply(1:50, function(x) {
@@ -81,7 +82,7 @@ expensive_control_runs = mclapply(1:50, function(x) {
   return(out)
 })
 
-saveRDS(expensive_control_runs, "expensive_control_runs.rds", compress=FALSE)
+saveRDS(expensive_control_runs, "expensive_control_runs_sh.rds", compress=FALSE)
 
 
 no_control_runs = readRDS('no_control_runs.rds')
@@ -225,3 +226,7 @@ control_runs <- mclapply(1:50, function(x) {
   if ("try-error" %in% class(out)) out = list(out, myseed)
   return(out)
 })
+
+a = process_runs(list(b))
+ggplot(subset(a, variable %in% c("N", "P")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(alpha = 0.5)
+ggplot(subset(a, variable %in% c("N", "P", "h")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(alpha = 0.5)
