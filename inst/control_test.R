@@ -28,7 +28,7 @@ parms = list(
   micro_timestep = 0.1,
   micro_relax_steps = 3,
   project = FALSE,
-  n_sims = 50,
+  n_sims = 2000,
   control_min = 0,
   control_max = 1000,
   v = 50,
@@ -48,7 +48,9 @@ time = 0
  #Rprof('opt.prof'
 options(error=recover)
 #a = determine_control(macro_state = macro_state, parms = parms, shadow_state = shadow_state, time = 0, control_guess = 0)
+#Rprof('opt.prof')
 b = macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0)
+#Rprof(NULL)
 
 options(mc.cores=20)
 #options(error = quote({dump.frames(to.file = TRUE)}))
@@ -106,5 +108,6 @@ ggplot(subset(control_runs_df, variable %in% c("N", "P")), aes(x=time, y=value, 
 ggplot(subset(expensive_control_runs_df, variable %in% c("N", "P")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(alpha = 0.5)
 
 a = process_runs(list(b))
-ggplot(subset(a, variable %in% c("N", "P")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(alpha = 0.5)
-ggplot(subset(a, variable %in% c("N", "P", "h")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(alpha = 0.5)
+ggplot(subset(a, variable %in% c("N", "P")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(lwd=2)
+ggplot(subset(a, variable %in% c("N", "P", "h")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(lwd=2)
+sum(filter(a, variable=="N")$value*parms$v - filter(a, variable=="h")$value * parms$c)
