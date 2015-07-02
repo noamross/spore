@@ -32,7 +32,7 @@ parms = list(
   control_min = 0,
   control_max = 1000,
   v = 50,
-  c = 100,
+  c = 200,
   progress = TRUE
   #micro_record = file("micro.txt", open="w+")
   #  macro_record = file("macro.txt", open="w")
@@ -41,7 +41,7 @@ parms = list(
 
 micro_state = c(100, 0, rep(0, parms$max_i - 1))
 macro_state = restrict.micro_state(micro_state)
-shadow_state = c(99.66243, -384.3681)
+shadow_state = c(95.235, -465.4366)
 time = 0
 #parms$control_max = 0
 
