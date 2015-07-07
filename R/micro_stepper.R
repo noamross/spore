@@ -73,11 +73,13 @@ micro_state.record = function(micro_state, time, connection, run, start) {
 }
 
 
-lift.macro_state = function(macro_state, parms) {
+lift.macro_state_FULL = function(macro_state, parms) {
   macro_state = pmax.int(macro_state, c(0,0))
 	vals = rpois(floor(macro_state[1]) + (runif(1) < (macro_state[1] - floor(macro_state[1]))), macro_state[2]/macro_state[1])
 	tabulate(bin = vals + 1, nbins = parms$max_i + 1)
 }
+
+lift.macro_state = cmpfun(lift.macro_state_FULL, options = list(optimize = 3))
 
 restrict.micro_state = function(micro_state) {
  c(sum(micro_state), 	sum(micro_state * (seq_along(micro_state) -1)))

@@ -146,6 +146,12 @@ profun = function(ivals, sys, parms) {
   out = lsoda(init, times, sys, parms)
   -profout(out)
 }
+
+shadzerofun = function(ivals, sys, parms) {
+  init = c(N=N0, P=P0, S1=ivals[1], S2=ivals[2])
+  out = lsoda(init, times, sys, parms)
+  
+}
 ```
 
 This optimization successfully converges:
@@ -273,3 +279,23 @@ using the difference in $N$ between the different simulations.  Over a range <1,
 be linear.  In order to calculate with accuracy without increasing the number of simultions,
 I can simply allocate half the simulations to each discrete level, and use a weighted average
 to calculate outcomes.
+
+```{r optshoot, echo=FALSE}
+shootfun = function(ivals, sys, target, parms) {
+  init = c(N=N0, P=P0, S1=ivals[1], S2=ivals[2])
+  out = lsoda(init, times, sys, parms)
+  obj = sum((tail(out, 1)[,c("S1", "S2")] - target)^2)
+  if(any(is.na(obj))) obj = Inf
+  return(obj)
+}
+
+opt0_s <- nloptr_tr(x0 = c(S10,S20), eval_f = shootfun, lb=c(-1e7, -1e7), ub=c(1e7, 1e7),
+               opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=300), sys=syseq2, parms=parms, target = c(0,0))
+opt0_s_trace = tracer(opt0_s)
+opt_s = nloptr_tr(x0 = opt0_s$solution, eval_f = shootfun, lb=c(-Inf, -Inf), ub=c(Inf, Inf),
+             opts = list(algorithm = "NLOPT_LN_SBPLX", maxeval=1000), sys=syseq2, parms=parms, target = c(0,0))
+
+opttrace = tracer(opt_s)
+opt_s
+
+```

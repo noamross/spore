@@ -7,23 +7,29 @@ closeAllConnections()
 parms = list(
   max_i = 20,
   lambda = 0.001,
-  lambda_ex = 0.1,
-  alpha = 0.01,
+  lambda_ex = 0.2,
+  alpha = 0.1,
+  alpha_power = 1,
   mu = 0.01,
   r = 0.5,
-  d = 0.1,
+  d = 0.01,
   K = 100,
   init_pop = 100,
-  time_max = 50,
+  time_max = 40,
   prevent_inf = 0,
   prevent_ex = 0,
   macro_timestep = 1,
-  micro_timestep = 0.125,
-  micro_relax_steps = 1,
+  micro_timestep = 0.1,
+  micro_relax_steps = 3,
   project = FALSE,
-  n_sims = 100,
-  micro_record = file("micro.txt", open="w+")
-  #	macro_record = file("macro.txt", open="w")
+  n_sims = 2000,
+  control_min = 0,
+  control_max = 1000,
+  v = 50,
+  c = 200,
+  progress = TRUE
+  #micro_record = file("micro.txt", open="w+")
+  #  macro_record = file("macro.txt", open="w")
 )
 
 micro_state = c(100, rep(0, parms$max_i))

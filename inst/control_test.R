@@ -25,10 +25,10 @@ parms = list(
   prevent_inf = 0,
   prevent_ex = 0,
   macro_timestep = 1,
-  micro_timestep = 0.1,
-  micro_relax_steps = 3,
+  micro_timestep = 0.05,
+  micro_relax_steps = 1,
   project = FALSE,
-  n_sims = 2000,
+  n_sims = 200,
   control_min = 0,
   control_max = 1000,
   v = 50,
@@ -41,7 +41,7 @@ parms = list(
 
 micro_state = c(100, 0, rep(0, parms$max_i - 1))
 macro_state = restrict.micro_state(micro_state)
-shadow_state = c(95.235, -465.4366)
+shadow_state = c(95.235, -459.6072)
 time = 0
 #parms$control_max = 0
 
@@ -49,9 +49,9 @@ time = 0
 options(error=recover)
 #a = determine_control(macro_state = macro_state, parms = parms, shadow_state = shadow_state, time = 0, control_guess = 0)
 
-#Rprof('opt.prof')
+# Rprof('opt.prof')
 b = macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0)
-#Rprof(NULL)
+# Rprof(NULL)
 
 options(mc.cores=20)
 #options(error = quote({dump.frames(to.file = TRUE)}))
@@ -67,7 +67,7 @@ no_control_runs <- mclapply(1:50, function(x) {
 saveRDS(no_control_runs, "no_control_runs_sh.rds", compress=FALSE)
 
 parms$control_max = 1000
-control_runs <- mclapply(1:50, function(x) {
+control_runs <- mclapply(1:20, function(x) {
   myseed = sample.int(1e6, 1)
   set.seed(myseed)
   out = try(macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0))
@@ -96,15 +96,13 @@ process_runs = . %>%
   lapply(., as.data.frame) %>%
   list.map(cbind(run=.i, .)) %>%
   rbind_all %>%
-  rename(run=run, time=times, N=V2, P=V3, dN=V4, dp=V5, ddN=V6, ddP=V7, S1 = V8, S2=V9, dS1=V10, dS2=V11, h = V12) %>%
-  gather(key=variable, value=value, -run, - time) %>%
-  mutate(value = ifelse(variable == "h", value/10, value))
+  rename(run=run, time=times, N=V2, P=V3, dN=V4, dp=V5, ddN=V6, ddP=V7, S1 = V8, S2=V9, dS1=V10, dS2=V11, h = V12, hamiltonian = hamiltonian, alt=alt) %>%
+  gather(key=variable, value=value, -run, - time)
 
 process_run = . %>%
   as.data.frame %>%
-  rename(time=times, N=V2, P=V3, dN=V4, dp=V5, ddN=V6, ddP=V7, S1 = V8, S2=V9, dS1=V10, dS2=V11, h = V12) %>%
-  gather(key=variable, value=value, - time) %>%
-  mutate(value = ifelse(variable == "h", value/10, value))
+  rename(time=times, N=V2, P=V3, dN=V4, dp=V5, ddN=V6, ddP=V7, S1 = V8, S2=V9, dS1=V10, dS2=V11, h = V12, hamiltonian= hamiltonian, alt=alt) %>%
+  gather(key=variable, value=value, - time)
 
 
 no_control_runs_df = process_runs(no_control_runs)
@@ -210,8 +208,8 @@ parms = list(
   control_max = 1000,
   v = 50,
   c = 100,
-  progress = TRUE
-  #micro_record = file("micro.txt", open="w+")
+  progress = TRUE,
+  micro_record = file("micro.txt", open="w+")
   #  macro_record = file("macro.txt", open="w")
 )
 
@@ -231,6 +229,25 @@ control_runs <- mclapply(1:50, function(x) {
 })
 
 a = process_runs(list(b))
-ggplot(subset(a, variable %in% c("N", "P")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(lwd=2)
-ggplot(subset(a, variable %in% c("N", "P", "h")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(lwd=2)
-sum(filter(a, variable=="N")$value*parms$v - filter(a, variable=="h")$value * parms$c)
+a = process_runs(control_runs)
+a = process_runs(no_control_runs)
+ggplot(subset(a, variable %in% c("N", "P")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(lwd=0.5)
+ggplot(subset(a, variable %in% c("N", "P", "h")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(lwd=0.5)
+# sum(filter(a, variable=="N")$value*parms$v - filter(a, variable=="h")$value * parms$c)
+a2 = a %>%
+  spread(variable, value) %>%
+  group_by(run) %>%
+  mutate(profit = sum(parms$v * N - parms$c*h)*parms$macro_timestep) %>%
+  group_by()
+
+profits = a2 %>% group_by(run) %>% summarize(value = sum(parms$v * N * parms$macro_timestep), cost = sum(parms$c *h * parms$macro_timestep), profit = value-cost, profitable = (profit > 0))
+
+profits %>% arrange(profit)
+
+ggplot(a2, aes(x=time, y=h, group=run)) + geom_line()
+hist(profits$profit)
+
+ggplot(subset(a, run %in% 8:9 & variable %in% c("N", "P", "h")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(lwd=0.5)
+ggplot(subset(a, run %in% 8:9 & variable %in% c("h")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(lwd=0.5)
+a2 %>% filter(run==5) %>% print(n=nrow(.))
+

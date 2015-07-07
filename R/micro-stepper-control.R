@@ -56,19 +56,20 @@ rates.micro_state = function(micro_state, parms, control) {
 micro_state_c.stepto = function(micro_state, parms, control, time, timeto, record=NULL, run = 1) {
 
 	time0 = time
+  RECORD = !is.null(record) && ("connection" %in% class(parms$micro_record))
 
-	if(!is.null(record)) {
+	if(RECORD) {
 		micro_state_c.record(micro_state, control, time, connection = record, run = run, start = time0)
 	}
 
 
 	while(time < timeto) {
 		out = micro_state_c.step(micro_state, parms, control, time)
-		micro_state = out$micro_state
+		if(out$time_next < timeto) micro_state = out$micro_state
 		time = out$time_next
 
-		if("connection" %in% class(parms$micro_record)) {
-			micro_state_c.record(micro_state, control, time, connection = parms$micro_record, run = run, start = time0)
+		if(RECORD) {
+			micro_state_c.record(micro_state, control, time, connection = record, run = run, start = time0)
 		}
 
 	}
