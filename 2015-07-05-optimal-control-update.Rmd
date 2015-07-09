@@ -66,6 +66,8 @@ library(ggplot2)
 library(noamtools)
 library(dplyr)
 library(tidyr)
+library(R.cache)
+library(threejs)
 knitr::opts_chunk$set(cache=TRUE)
 knitr::opts_chunk$set(warning = FALSE)
 ```
@@ -115,7 +117,7 @@ parms = list(
   d = 0.01,
   K = 100,
   control_min = 0,
-  control_max = 1000,
+  control_max = 0,
   v = 50,
   cost = 200,
   c = 200,
@@ -128,10 +130,10 @@ parms = list(
 
 N0 = 100
 P0 = 0
-S10 =  95.325211
-S20 =  -465.441918
+S10 =  101.9618
+S20 =  -84.02254
 init = c(N = N0, P = P0, S1 = S10, S2 = S20)
-times = seq(0,100, by=1)
+times = seq(0,25, by=1)
 ```
 
 ```{r optfuns, echo=FALSE}
@@ -141,16 +143,38 @@ profout = function(out) {
   return(intval$value)
 }
 
-profun = function(ivals, sys, parms) {
+profun_base = function(ivals, sys, parms, times) {
   init = c(N=N0, P=P0, S1=ivals[1], S2=ivals[2])
   out = lsoda(init, times, sys, parms)
   -profout(out)
 }
 
-shadzerofun = function(ivals, sys, parms) {
+shadshoot_base = function(ivals, sys, parms, times, target) {
   init = c(N=N0, P=P0, S1=ivals[1], S2=ivals[2])
   out = lsoda(init, times, sys, parms)
-  
+  obj = sum((tail(out, 1)[,c("S1", "S2")] - target)^2)
+  if(any(is.na(obj))) obj = Inf
+  return((obj))
+}
+
+stateshoot_base = function(ivals, sys, parms, times, target) {
+  init = c(N=N0, P=P0, S1=ivals[1], S2=ivals[2])
+  out = lsoda(init, times, sys, parms)
+  obj = sum((tail(out, 1)[,c("N", "P")] - target)^2)
+  if(any(is.na(obj))) obj = Inf
+  return((obj))
+}
+
+profun = function(ivals, sys, parms, times) {
+  memoizedCall(profun_base, ivals=ivals, sys=sys, parms=parms, times=times)
+}
+
+shadshoot = function(ivals, sys, parms, times, target) {
+  memoizedCall(shadshoot_base, ivals=ivals, sys=sys, parms=parms, times = times, target=target)
+}
+
+stateshoot = function(ivals, sys, parms, times, target) {
+  memoizedCall(stateshoot_base, ivals=ivals, sys=sys, parms=parms, times=times, target=target)
 }
 ```
 
@@ -159,14 +183,23 @@ This optimization successfully converges:
 ```{r optimize, echo = FALSE}
 library(tracer)
 # #
-opt0 <- nloptr_tr(x0 = c(S10,S20), eval_f = profun, lb=c(-1e7, -1e7), ub=c(1e7, 1e7),
-               opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=300), sys=syseq2, parms=parms)
-opt0trace = tracer(opt0)
-opt = nloptr_tr(x0 = opt0$solution, eval_f = profun, lb=c(-Inf, -Inf), ub=c(Inf, Inf),
-             opts = list(algorithm = "NLOPT_LN_SBPLX", maxeval=1000), sys=syseq2, parms=parms)
+set.seed(0)
+#opt0 <- nloptr_tr(x0 = c(S10,S20), eval_f = profun, lb=c(-1e6, -1e6), ub=c(1e6, 1e6),
+#               opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=700, xtol_rel = -1, ftol_rel = -1, print_level = #ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times)
+#opt0trace = tracer(opt0)
+#opt = nloptr_tr(x0 = opt0$solution, eval_f = profun, lb=c(-Inf, -Inf), ub=c(Inf, Inf),
+#             opts = list(algorithm = "NLOPT_LN_BOBYQA", maxeval=400, xtol_rel = -1, ftol_rel = -1, print_level = #ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times)
+
+opt = nloptr_tr(x0 = c(S10, S20), eval_f = profun, lb=c(-Inf, -Inf), ub=c(Inf, Inf),
+             opts = list(algorithm = "NLOPT_LN_BOBYQA", maxeval=400, xtol_rel = -1, ftol_rel = -1, print_level = ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times)
+
 
 opttrace = tracer(opt)
 opt
+
+landsc = rbind(opt0trace, opttrace)
+scatterplot3js(landsc$xval1, landsc$xval2, -landsc$fval)
+
 ```
 
 Above, the values `r round(opt$solution[1], 3)` and `r round(opt$solution[2], 3)` are the initial shadow values. 
@@ -175,6 +208,7 @@ This yields the following optimal path:
 
 ```{r baserun, echo = FALSE}
 
+#out_opt = lsoda(c(N = N0, P = P0, S1 = opt$solution[1], S2 = opt$solution[2]), times, syseq2, parms)
 out_opt = lsoda(c(N = N0, P = P0, S1 = opt$solution[1], S2 = opt$solution[2]), times, syseq2, parms)
 #matplot(out_opt[,1], out_opt[,c("N", "P", "h")], type="l", lty=1, lwd=1, main=round(profout(out_opt)))
 
@@ -281,21 +315,93 @@ I can simply allocate half the simulations to each discrete level, and use a wei
 to calculate outcomes.
 
 ```{r optshoot, echo=FALSE}
-shootfun = function(ivals, sys, target, parms) {
-  init = c(N=N0, P=P0, S1=ivals[1], S2=ivals[2])
-  out = lsoda(init, times, sys, parms)
-  obj = sum((tail(out, 1)[,c("S1", "S2")] - target)^2)
-  if(any(is.na(obj))) obj = Inf
-  return(obj)
-}
+set.seed(0)
+opt0_s <- nloptr_tr(x0 = opt$solution, eval_f = shadshoot, lb=c(-1e6, -1e6), ub=c(1e6, 1e6),
+               opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=1000, xtol_rel = -1, ftol_rel = -1, stopval = 0, print_level = ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times, target = c(0,0))
 
-opt0_s <- nloptr_tr(x0 = c(S10,S20), eval_f = shootfun, lb=c(-1e7, -1e7), ub=c(1e7, 1e7),
-               opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=300), sys=syseq2, parms=parms, target = c(0,0))
 opt0_s_trace = tracer(opt0_s)
-opt_s = nloptr_tr(x0 = opt0_s$solution, eval_f = shootfun, lb=c(-Inf, -Inf), ub=c(Inf, Inf),
-             opts = list(algorithm = "NLOPT_LN_SBPLX", maxeval=1000), sys=syseq2, parms=parms, target = c(0,0))
 
-opttrace = tracer(opt_s)
+opt_s = nloptr_tr(x0 = opt0_s$solution, eval_f = shadshoot, lb=c(-Inf, -Inf), ub=c(Inf, Inf),
+             opts = list(algorithm = "NLOPT_LN_BOBYQA", maxeval=1000, xtol_rel = -1, ftol_rel = -1, stopval = 0, print_level = ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times, target = c(0,0))
+
+opttrace_s = tracer(opt_s)
 opt_s
 
+
+
+out_opt2 = lsoda(c(N = N0, P = P0, S1 = opt_s$solution[1], S2 = opt_s$solution[2]), times, syseq2, parms)
+#matplot(out_opt[,1], out_opt[,c("N", "P", "h")], type="l", lty=1, lwd=1, main=round(profout(out_opt)))
+
+out = as.data.frame(out_opt)
+out_tidy2 = gather(out, "variable", "value", -time)
+
+ggplot(filter(out_tidy2, variable %in% c("N", "P", "h")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Population or Control level")) +
+  theme_nr
+
+
+ggplot(filter(out_tidy, variable %in% c("S1", "S2")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Shadow value")) +
+  theme_nr
+
+ggplot(filter(out_tidy, variable %in% c("dN", "dP", "dS1", "dS2")), aes(x = time, y=value, col=variable)) + 
+  geom_line() + facet_wrap(~variable, ncol = 1, scales = "free")
+
+shad_shoot_trace = rbind(opt0_s_trace, opttrace_s)
+landscape = opt0_s_trace
+scatterplot3js(shad_shoot_trace$xval1, shad_shoot_trace$xval2, log(shad_shoot_trace$fval))
+scatterplot3js(opt0_s_trace$xval1[1:190], opt0_s_trace$xval2[1:190], log(opt0_s_trace$fval[1:190]))
+```
+
+NOTE: TRY THIS WITH BOUNDARY CONDITIONS OF MAINTAINING THE POPULATION.
+TRY USING ROOTFIND FOR ZERO RATHER THAN NLOPT
+
+MEMOIZE THE OPTIMIZATION FUNCTION AND KEEP A RECORD OF ALL THE VALUES
+
+
+```{r optshoot, echo=FALSE}
+set.seed(0)
+opt0_st <- nloptr_tr(x0 = opt$solution, eval_f = stateshoot, lb=c(-1e6, -1e6), ub=c(1e6, 1e6),
+               opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=1000, xtol_rel = -1, ftol_rel = -1, stopval = 0, print_level = ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times, target = c(98,0))
+
+opt0_st_trace = tracer(opt0_st)
+
+opt_st = nloptr_tr(x0 = opt0_st$solution, eval_f = stateshoot, lb=c(-Inf, -Inf), ub=c(Inf, Inf),
+             opts = list(algorithm = "NLOPT_LN_BOBYQA", maxeval=1000, xtol_rel = -1, ftol_rel = -1, stopval = 0, print_level = ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times, target = c(98,0))
+
+opttrace_s = tracer(opt_st)
+opt_s
+
+
+
+out_opt3 = lsoda(c(N = N0, P = P0, S1 = opt0_st$solution[1], S2 = opt_s$solution[2]), times, syseq2, parms)
+#matplot(out_opt[,1], out_opt[,c("N", "P", "h")], type="l", lty=1, lwd=1, main=round(profout(out_opt)))
+
+out3 = as.data.frame(out_opt3)
+out_tidy3 = gather(out3, "variable", "value", -time)
+
+ggplot(filter(out_tidy3, variable %in% c("N", "P", "h")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Population or Control level")) +
+  theme_nr
+
+
+ggplot(filter(out_tidy, variable %in% c("S1", "S2")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Shadow value")) +
+  theme_nr
+
+ggplot(filter(out_tidy, variable %in% c("dN", "dP", "dS1", "dS2")), aes(x = time, y=value, col=variable)) + 
+  geom_line() + facet_wrap(~variable, ncol = 1, scales = "free")
+
+shad_shoot_trace = rbind(opt0_s_trace, opttrace_s)
+landscape = opt0_s_trace
+scatterplot3js(shad_shoot_trace$xval1, shad_shoot_trace$xval2, log(shad_shoot_trace$fval))
+scatterplot3js(opt0_s_trace$xval1[1:190], opt0_s_trace$xval2[1:190], log(opt0_s_trace$fval[1:190]))
 ```
