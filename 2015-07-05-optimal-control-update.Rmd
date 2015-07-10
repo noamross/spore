@@ -73,14 +73,24 @@ knitr::opts_chunk$set(warning = FALSE)
 ```
 
 ```{r def-eqns, echo=FALSE}
+
+h_fun = function(x) {
+  ifelse(x >= 1, log(x), 0)
+}
+
+h_fun2 = approxfun(seq(0, 1000, by = 0.001), h_fun(seq(0, 1000, by = 0.001)), rule=2)
 syseq2 = function(t, state, parms) {
   with(as.list(c(state, parms)), {
-    h_calc = c(parms$control_min, parms$control_max, uniroot.all(hH_h,c(parms$control_min, parms$control_max), n=10000, t=t, state=state, parms=parms))
-    if(length(h_calc) == 3) h_calc = c(h_calc, NA)
-    H_calc = H(h_calc, t, state, parms)
-    if(length(H_calc) == 3) H_calc = c(h_calc, NA)
-    H_sel = max(H_calc, na.rm=TRUE)
-    h = h_calc[which.max(H_calc)]
+#    h_calc = c(parms$control_min, parms$control_max, uniroot.all(hH_h,c(parms$control_min, parms$control_max), n=10000, t=t, state=state, parms=parms))
+#    if(length(h_calc) == 3) h_calc = c(h_calc, NA)
+#    H_calc = H(h_calc, t, state, parms)
+#    if(length(H_calc) == 3) H_calc = c(h_calc, NA)
+#    H_sel = max(H_calc, na.rm=TRUE)
+#    h = h_calc[which.max(H_calc)]
+    h = h_fun(-S2 * N * lambda_ex / c)
+    #h = suppressWarnings()
+    #if(is.nan(h)) h = 0
+    #h = min(h, parms$control_max)
     dN = max(r*N*(1 - N/K), 0) - alpha*P - d*N
     if(isTRUE(all.equal(dN, 0))) dN = 0
     dP = lambda*P*N - mu*P - d*P - alpha*P - alpha*(P^2)/N + exp(-h)*N*lambda_ex
@@ -88,7 +98,7 @@ syseq2 = function(t, state, parms) {
     dS2 = S1*alpha - S2*(lambda*N - mu - d - alpha - 2*alpha*P/N) + delta*S2
     derivs = c(dN=dN, dP=dP, dS1=dS1, dS2=dS2)
     #    derivs = ifelse(abs(derivs) > .Machine$double.eps ^ 0.5, derivs, 0)
-    return(list(derivs, c(derivs, h_calc = h_calc, H_calc = H_calc, H_sel=H_sel, h=h)))
+    return(list(derivs, c(derivs, h=h))) # h_calc = h_calc, H_calc = H_calc, H_sel=H_sel, h=h)))
   })
 }
 
@@ -117,7 +127,7 @@ parms = list(
   d = 0.01,
   K = 100,
   control_min = 0,
-  control_max = 0,
+  control_max = 1000,
   v = 50,
   cost = 200,
   c = 200,
@@ -128,12 +138,12 @@ parms = list(
 )
 
 
-N0 = 100
+N0 = 98
 P0 = 0
-S10 =  101.9618
-S20 =  -84.02254
+S10 =  0
+S20 =  0
 init = c(N = N0, P = P0, S1 = S10, S2 = S20)
-times = seq(0,25, by=1)
+times = seq(0,40, by=0.1)
 ```
 
 ```{r optfuns, echo=FALSE}
@@ -149,9 +159,10 @@ profun_base = function(ivals, sys, parms, times) {
   -profout(out)
 }
 
-shadshoot_base = function(ivals, sys, parms, times, target) {
-  init = c(N=N0, P=P0, S1=ivals[1], S2=ivals[2])
+shadshoot_base = function(ivals, sys, parms, times, target, inits) {
+  init = c(N=inits[1], P=inits[2], S1=ivals[1], S2=ivals[2])
   out = lsoda(init, times, sys, parms)
+ # if(any(out[, "S2"] > 0)) return(Inf)
   obj = sum((tail(out, 1)[,c("S1", "S2")] - target)^2)
   if(any(is.na(obj))) obj = Inf
   return((obj))
@@ -169,8 +180,8 @@ profun = function(ivals, sys, parms, times) {
   memoizedCall(profun_base, ivals=ivals, sys=sys, parms=parms, times=times)
 }
 
-shadshoot = function(ivals, sys, parms, times, target) {
-  memoizedCall(shadshoot_base, ivals=ivals, sys=sys, parms=parms, times = times, target=target)
+shadshoot = function(ivals, sys, parms, times, target, inits) {
+  memoizedCall(shadshoot_base, ivals=ivals, sys=sys, parms=parms, times = times, target=target, inits=inits)
 }
 
 stateshoot = function(ivals, sys, parms, times, target) {
@@ -184,14 +195,11 @@ This optimization successfully converges:
 library(tracer)
 # #
 set.seed(0)
-#opt0 <- nloptr_tr(x0 = c(S10,S20), eval_f = profun, lb=c(-1e6, -1e6), ub=c(1e6, 1e6),
-#               opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=700, xtol_rel = -1, ftol_rel = -1, print_level = #ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times)
-#opt0trace = tracer(opt0)
-#opt = nloptr_tr(x0 = opt0$solution, eval_f = profun, lb=c(-Inf, -Inf), ub=c(Inf, Inf),
-#             opts = list(algorithm = "NLOPT_LN_BOBYQA", maxeval=400, xtol_rel = -1, ftol_rel = -1, print_level = #ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times)
-
-opt = nloptr_tr(x0 = c(S10, S20), eval_f = profun, lb=c(-Inf, -Inf), ub=c(Inf, Inf),
-             opts = list(algorithm = "NLOPT_LN_BOBYQA", maxeval=400, xtol_rel = -1, ftol_rel = -1, print_level = ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times)
+opt0 <- nloptr_tr(x0 = c(S10,S20), eval_f = profun, lb=c(0, -1e3), ub=c(1e3, 0),
+               opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=2000, xtol_rel = -1, ftol_rel = 1e-6, population = 1000, print_level = ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times)
+opt0trace = tracer(opt0)
+opt = nloptr_tr(x0 = opt0$solution, eval_f = profun, lb=c(0, -1e3), ub=c(1e3, 0),
+             opts = list(algorithm = "NLOPT_LN_BOBYQA", maxeval=400, xtol_rel = -1, ftol_rel = 1e-10, print_level = ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times)
 
 
 opttrace = tracer(opt)
@@ -316,24 +324,26 @@ to calculate outcomes.
 
 ```{r optshoot, echo=FALSE}
 set.seed(0)
-opt0_s <- nloptr_tr(x0 = opt$solution, eval_f = shadshoot, lb=c(-1e6, -1e6), ub=c(1e6, 1e6),
-               opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=1000, xtol_rel = -1, ftol_rel = -1, stopval = 0, print_level = ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times, target = c(0,0))
+opt0_s <- nloptr_tr(x0 = c(0,0), eval_f = shadshoot, lb=c(0, -1e3), ub=c(1e3, 0),
+               opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=10000, xtol_abs = 1e-1 , ftol_rel = -1, xtol_rel = -1, stopval = sqrt(.Machine$double.eps), print_level = ifelse(interactive(), 3, 0), ranseed = 1), sys=syseq2, parms=parms, times=times, target = c(0,0), inits=c(N0, P0))
 
-opt0_s_trace = tracer(opt0_s)
+next_x0 = opt0_s$solution
 
-opt_s = nloptr_tr(x0 = opt0_s$solution, eval_f = shadshoot, lb=c(-Inf, -Inf), ub=c(Inf, Inf),
-             opts = list(algorithm = "NLOPT_LN_BOBYQA", maxeval=1000, xtol_rel = -1, ftol_rel = -1, stopval = 0, print_level = ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times, target = c(0,0))
+opt_s <- nloptr_tr(x0 = next_x0, eval_f = shadshoot, lb=c(0, -1e3), ub=c(1e3, 0),
+               opts = list(algorithm = "NLOPT_LN_SBPLX", maxeval=10000, xtol_abs = .Machine$double.eps , xtol_rel = -1, ftol_rel = -1, stopval = sqrt(.Machine$double.eps), print_level = ifelse(interactive(), 3, 0), ranseed = 1), sys=syseq2, parms=parms, times=times, target = c(0,0), inits=c(N0, P0))
 
-opttrace_s = tracer(opt_s)
-opt_s
+# next_x0 = opt1_s$solution
+# 
+# opt_s = nloptr_tr(x0 = next_x0, eval_f = shadshoot, lb=next_x0 - 0.1, ub=next_x0 + 0.1, opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=-1, xtol_rel = -1, xtol_abs = -1, ftol_rel = -1 , ftol_abs = -1, stopval = sqrt(.Machine$double.eps), maxeval=1000, population = 10, print_level = ifelse(interactive(), 3, 0), ranseed = 2), sys=syseq2, parms=parms, times=times, target = c(0,0), inits=c(N0, P0))
 
-
+shad_shoot_trace = rbind(tracer(opt0_s), tracer(opt_s))
+scatterplot3js(shad_shoot_trace$xval1, shad_shoot_trace$xval2, log(shad_shoot_trace$fval))
 
 out_opt2 = lsoda(c(N = N0, P = P0, S1 = opt_s$solution[1], S2 = opt_s$solution[2]), times, syseq2, parms)
 #matplot(out_opt[,1], out_opt[,c("N", "P", "h")], type="l", lty=1, lwd=1, main=round(profout(out_opt)))
 
-out = as.data.frame(out_opt)
-out_tidy2 = gather(out, "variable", "value", -time)
+out2 = as.data.frame(out_opt2)
+out_tidy2 = gather(out2, "variable", "value", -time)
 
 ggplot(filter(out_tidy2, variable %in% c("N", "P", "h")),
        aes(x=time, y=value, col=variable)) + 
@@ -342,19 +352,16 @@ ggplot(filter(out_tidy2, variable %in% c("N", "P", "h")),
   theme_nr
 
 
-ggplot(filter(out_tidy, variable %in% c("S1", "S2")),
+ggplot(filter(out_tidy2, variable %in% c("S1", "S2")),
        aes(x=time, y=value, col=variable)) + 
   geom_line() +
   labs(list(x = "Time", y = "Shadow value")) +
   theme_nr
 
-ggplot(filter(out_tidy, variable %in% c("dN", "dP", "dS1", "dS2")), aes(x = time, y=value, col=variable)) + 
+ggplot(filter(out_tidy2, variable %in% c("dN", "dP", "dS1", "dS2")), aes(x = time, y=value, col=variable)) + 
   geom_line() + facet_wrap(~variable, ncol = 1, scales = "free")
 
-shad_shoot_trace = rbind(opt0_s_trace, opttrace_s)
-landscape = opt0_s_trace
-scatterplot3js(shad_shoot_trace$xval1, shad_shoot_trace$xval2, log(shad_shoot_trace$fval))
-scatterplot3js(opt0_s_trace$xval1[1:190], opt0_s_trace$xval2[1:190], log(opt0_s_trace$fval[1:190]))
+
 ```
 
 NOTE: TRY THIS WITH BOUNDARY CONDITIONS OF MAINTAINING THE POPULATION.
