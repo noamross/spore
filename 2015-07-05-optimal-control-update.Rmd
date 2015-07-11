@@ -1,0 +1,414 @@
+---
+title: "Multi-Scale Optimal Control Update"
+author: "Noam Ross"
+date: "7/5/2015"
+output: html_document
+---
+
+# 1. Boundary values and mutiple solutions to the ODE Hamiltonian
+
+***Is this optimal path feasible or due to a numerical error***
+
+The comparison case for my stochastic, individual-based optimal control problem
+has been this ODE-based optimal control problem.  
+
+-  System dynamics ($N$ = hosts, $P$ = parasites):
+
+$$\begin{align}
+\frac{dN}{dt} &= r N (1 - N/K) - \alpha P - d N \\
+\frac{dP}{dt} &= \lambda P N - \mu P - d P - \alpha P - \alpha P^2/N + e^{-h} N \lambda_{ex}
+\end{align}$$ 
+
+
+-  Profit function (continuous provision of ecosystem pervice per individual host minus control cost):
+
+$$vN - ch$$
+
+-  Hamiltonian
+
+
+$$\begin{align}
+\mathcal{H} = &vN - ch + \\
+&\nu_1 \left( rN(1 - N/K) - \alpha P - d N \right) + \\
+&\nu_2 \left(\lambda P N - \mu P - d P - \alpha P - \alpha (P^2)/N + e^{-h}  N \lambda_{ex} \right)
+\end{align}$$
+
+-  Shadow price dynamics (via adjoint principle):
+
+$$\begin{align}
+\frac{d\nu_1}{dt} &= -v - \nu_1 \left(r - d - 2r \frac{N}{K}\right) - \nu_2 \left(\lambda P + \alpha \frac{P^2}{N^2} + e^{-h} \lambda_{ex} \right) + \delta \nu_1 \\
+\frac{d\nu_2}{dt} &= \nu_1 \alpha - \nu_2 \left(\lambda N - \mu - d - \alpha - \frac{2 \alpha P}{N} \right) + \delta \nu_2
+\end{align}$$
+
+-  The control, which reduces arrival rate of new parasites or spores, is determined
+by solving
+
+$$ h \frac{d\mathcal H}{dh} = 0 = h \left( -c - \nu_2 e^{-h} N * \lambda_{ex} \right)$$
+
+Since the problem is solved over a fixed time period, and there are no policy
+constraints on the terminal conditions, I don't have boundary conditions for the
+state or shadow variables, so I solve for initial values of $\nu_1$ and $\nu_2$ by maxmizing
+the overall profit, calculated as
+
+$$\int_{t=0}^{100} vN(t) - ch(t) dt$$
+
+I calculate this integral using cubic splines over the grid of the solution.
+
+```{r setup, echo=FALSE, include=FALSE}
+#devtools::install_github('noamross/tracer')
+#devtools::install_github('noamross/noamtools')
+library(deSolve)
+library(bvpSolve)
+library(rootSolve)
+library(nloptr)
+library(tracer)
+library(ggplot2)
+library(noamtools)
+library(dplyr)
+library(tidyr)
+library(R.cache)
+library(threejs)
+knitr::opts_chunk$set(cache=TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+```
+
+```{r def-eqns, echo=FALSE}
+
+h_fun = function(x) {
+  ifelse(x >= 1, log(x), 0)
+}
+
+h_fun2 = approxfun(seq(0, 1000, by = 0.001), h_fun(seq(0, 1000, by = 0.001)), rule=2)
+syseq2 = function(t, state, parms) {
+  with(as.list(c(state, parms)), {
+#    h_calc = c(parms$control_min, parms$control_max, uniroot.all(hH_h,c(parms$control_min, parms$control_max), n=10000, t=t, state=state, parms=parms))
+#    if(length(h_calc) == 3) h_calc = c(h_calc, NA)
+#    H_calc = H(h_calc, t, state, parms)
+#    if(length(H_calc) == 3) H_calc = c(h_calc, NA)
+#    H_sel = max(H_calc, na.rm=TRUE)
+#    h = h_calc[which.max(H_calc)]
+    h = h_fun(-S2 * N * lambda_ex / c)
+    #h = suppressWarnings()
+    #if(is.nan(h)) h = 0
+    #h = min(h, parms$control_max)
+    dN = max(r*N*(1 - N/K), 0) - alpha*P - d*N
+    if(isTRUE(all.equal(dN, 0))) dN = 0
+    dP = lambda*P*N - mu*P - d*P - alpha*P - alpha*(P^2)/N + exp(-h)*N*lambda_ex
+    dS1 = -v - S1*(r - d - 2*(r/K)*N) - S2*(lambda*P + alpha*(P^2/N^2) + exp(-h) * lambda_ex) + delta*S1
+    dS2 = S1*alpha - S2*(lambda*N - mu - d - alpha - 2*alpha*P/N) + delta*S2
+    derivs = c(dN=dN, dP=dP, dS1=dS1, dS2=dS2)
+    #    derivs = ifelse(abs(derivs) > .Machine$double.eps ^ 0.5, derivs, 0)
+    return(list(derivs, c(derivs, h=h))) # h_calc = h_calc, H_calc = H_calc, H_sel=H_sel, h=h)))
+  })
+}
+
+hH_h = function(h, t, state, parms) {
+  with(as.list(c(state, parms)), {
+    h*( - cost - S2 * exp(-h) * N * lambda_ex)
+  })
+}
+
+H = function(h, t, state, parms) {
+  with(as.list(c(state, parms)), {
+    val = v*N - cost*h + S1*(r*N*(1 - N/K) - alpha*P - d*N) + S2*(lambda*P*N - mu*P - d*P - alpha*P - alpha*(P^2)/N + exp(-h)*N*lambda_ex)
+    return(val)
+  })
+}
+```
+
+```{r setparms, echo=FALSE}
+
+parms = list(
+  lambda = 0.001,
+  lambda_ex = 0.2,
+  alpha = 0.1,
+  mu = 0.01,
+  r = 0.5,
+  d = 0.01,
+  K = 100,
+  control_min = 0,
+  control_max = 1000,
+  v = 50,
+  cost = 200,
+  c = 200,
+  delta = 0,
+  progress = TRUE
+  #micro_record = file("micro.txt", open="w+")
+  #  macro_record = file("macro.txt", open="w")
+)
+
+
+N0 = 98
+P0 = 0
+S10 =  0
+S20 =  0
+init = c(N = N0, P = P0, S1 = S10, S2 = S20)
+times = seq(0,40, by=1)
+```
+
+```{r optfuns, echo=FALSE}
+profout = function(out) {
+  intval = integrate(splinefun(out[,"time"], (out[,"N"]*parms$v - (out[,"h"])*parms$cost)*exp(-out[,"time"]*parms$delta)),
+            lower = out[1,"time"], upper=tail(out[,"time"], 1))
+  return(intval$value)
+}
+
+profun_base = function(ivals, sys, parms, times) {
+  init = c(N=N0, P=P0, S1=ivals[1], S2=ivals[2])
+  out = lsoda(init, times, sys, parms)
+  -profout(out)
+}
+
+shadshoot_base = function(ivals, sys, parms, times, target, inits) {
+  init = c(N=inits[1], P=inits[2], S1=ivals[1], S2=ivals[2])
+  out = lsoda(init, times, sys, parms)
+ # if(any(out[, "S2"] > 0)) return(Inf)
+  obj = sum((tail(out, 1)[,c("S1", "S2")] - target)^2)
+  if(any(is.na(obj))) obj = Inf
+  return((obj))
+}
+
+stateshoot_base = function(ivals, sys, parms, times, target) {
+  init = c(N=N0, P=P0, S1=ivals[1], S2=ivals[2])
+  out = lsoda(init, times, sys, parms)
+  obj = sum((tail(out, 1)[,c("N", "P")] - target)^2)
+  if(any(is.na(obj))) obj = Inf
+  return((obj))
+}
+
+profun = function(ivals, sys, parms, times) {
+  memoizedCall(profun_base, ivals=ivals, sys=sys, parms=parms, times=times)
+}
+
+shadshoot = function(ivals, sys, parms, times, target, inits) {
+  memoizedCall(shadshoot_base, ivals=ivals, sys=sys, parms=parms, times = times, target=target, inits=inits)
+}
+
+stateshoot = function(ivals, sys, parms, times, target) {
+  memoizedCall(stateshoot_base, ivals=ivals, sys=sys, parms=parms, times=times, target=target)
+}
+```
+
+This optimization successfully converges:
+
+```{r optimize, echo = FALSE}
+library(tracer)
+# #
+set.seed(0)
+opt0 <- nloptr_tr(x0 = c(S10,S20), eval_f = profun, lb=c(0, -1e3), ub=c(1e3, 0),
+               opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=2000, xtol_rel = -1, ftol_rel = 1e-6, population = 1000, print_level = ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times)
+opt0trace = tracer(opt0)
+opt = nloptr_tr(x0 = opt0$solution, eval_f = profun, lb=c(0, -1e3), ub=c(1e3, 0),
+             opts = list(algorithm = "NLOPT_LN_BOBYQA", maxeval=400, xtol_rel = -1, ftol_rel = 1e-10, print_level = ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times)
+
+
+opttrace = tracer(opt)
+opt
+
+landsc = rbind(opt0trace, opttrace)
+scatterplot3js(landsc$xval1, landsc$xval2, -landsc$fval)
+
+```
+
+Above, the values `r round(opt$solution[1], 3)` and `r round(opt$solution[2], 3)` are the initial shadow values. 
+
+This yields the following optimal path:
+
+```{r baserun, echo = FALSE}
+
+#out_opt = lsoda(c(N = N0, P = P0, S1 = opt$solution[1], S2 = opt$solution[2]), times, syseq2, parms)
+out_opt = lsoda(c(N = N0, P = P0, S1 = opt$solution[1], S2 = opt$solution[2]), times, syseq2, parms)
+#matplot(out_opt[,1], out_opt[,c("N", "P", "h")], type="l", lty=1, lwd=1, main=round(profout(out_opt)))
+
+out = as.data.frame(out_opt)
+out_tidy = gather(out, "variable", "value", -time)
+
+```
+
+```{r plot-path, echo = FALSE}
+ggplot(filter(out_tidy, variable %in% c("N", "P", "h")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Population or Control level")) +
+  theme_nr
+```
+
+I sanity-checked these by using a shooting algorithm to finish the simulation at similar (not identical) finish points, which yields the same path.
+
+Here is the path of the shadow values, which I show at 3 scales to show how they change
+and then go very negative very fast.  Note that when the shadow values for the 
+parasite go *positive* is when the optimal control falls to zero.  This positive value is counter-intuitive but
+makes some sense.  At that point in the epidemic, additional parasites will make
+the epidemic burn out quicker.
+
+```{r plot-shadow, echo = FALSE}
+ggplot(filter(out_tidy, variable %in% c("S1", "S2")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Shadow value")) +
+  theme_nr + ylim(-2e3, 2e3)
+
+ggplot(filter(out_tidy, variable %in% c("S1", "S2")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Shadow value")) +
+  theme_nr + ylim(-2e3, 3e5)
+
+
+ggplot(filter(out_tidy, variable %in% c("S1", "S2")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Shadow value")) +
+  theme_nr
+
+```
+
+Note that the shadow value of the parasites goes *positive* at this point, which
+is counter-intuitive but I think makes sense.
+
+Since the solution to $h \, d\mathcal{H}/ dh$ has multiple roots, I solve for both
+and determine the value of $h$ which gives the highest value for $\mathcal{H}$.  Here is a 
+plot of the $\mathcal{H}$ over time, as well as the control level:
+
+```{r plot-hamil, echo = FALSE}
+ggplot(filter(out_tidy, variable %in% c("H_calc3", "H_calc4")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Hamiltonian")) +
+  theme_nr + ylim(-20000, 5000)
+```
+
+
+```{r plot-control, echo = FALSE}
+ggplot(filter(out_tidy, variable %in% c("h_calc3", "h_calc4")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Control Level")) +
+  theme_nr
+```
+
+# 2. Numerical stability in calculating shadow values in the IBM
+
+I've been working on improving the numerical stability of my IBM-optimization
+algorithm.  Up until now, this has been a matter of speeding up code so as
+to reduce the grid size and increase the number of simulations I use to 
+calculate the derivatives of the mean IBM behavior.  However, I encountered a 
+challenge in calcualting shadow values for which this doesn't help.
+
+Shadow values are calculated via the adjoint equation:
+
+$$\frac{d\nu}{dt} = - \frac{d\mathcal{H}}{dN} = - \frac{d\pi}{dN} - \nu \frac{dN'}{dN}$$
+
+I approximate \frac{dx'}{dx} as
+
+$$ \frac{dN'}{dN} = \frac{dN^2 / d^2t}{dN/dt} \approx \frac{\Delta N'}{\Delta N}$$
+
+However, when the system has more than one state variable, this approximation
+doesn't hold because $\frac{dN'}{dN}$ needs to be calculated for each variable
+while holding the other constant, which isn't possible when calculating only
+via forward simulation.
+
+However, I'm currently implementing another approach that takes advantage of the fact
+that the macro-level system representation is of two continuous variables ($N,P$),
+but the micro-level simulation is of discrete counts.
+
+The "lifting" function generates a number of parallel instances of the micro-level
+simulation with discrete counts from the continuous macro-level variables.  If
+the macro-level population in 18.7, it will generate 30% of the simulations starting
+with a population of 18 and 70% with a population, and average the results of all of
+them.  This means I can directly calculate $\frac{dN'}{dN} \approx \frac{\Delta N'}{\Delta N}$
+using the difference in $N$ between the different simulations.  Over a range <1, this will
+be linear.  In order to calculate with accuracy without increasing the number of simultions,
+I can simply allocate half the simulations to each discrete level, and use a weighted average
+to calculate outcomes.
+
+```{r optshoot, echo=FALSE}
+set.seed(0)
+opt0_s <- nloptr_tr(x0 = c(0,0), eval_f = shadshoot, lb=c(0, -1e3), ub=c(1e3, 0),
+               opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=10000, xtol_abs = 1e-1 , ftol_rel = -1, xtol_rel = -1, stopval = sqrt(.Machine$double.eps), print_level = ifelse(interactive(), 3, 0), ranseed = 1), sys=syseq2, parms=parms, times=times, target = c(0,0), inits=c(N0, P0))
+
+next_x0 = opt0_s$solution
+
+opt_s <- nloptr_tr(x0 = next_x0, eval_f = shadshoot, lb=c(0, -1e3), ub=c(1e3, 0),
+               opts = list(algorithm = "NLOPT_LN_SBPLX", maxeval=10000, xtol_abs = .Machine$double.eps , xtol_rel = -1, ftol_rel = -1, stopval = sqrt(.Machine$double.eps), print_level = ifelse(interactive(), 3, 0), ranseed = 1), sys=syseq2, parms=parms, times=times, target = c(0,0), inits=c(N0, P0))
+
+# next_x0 = opt1_s$solution
+# 
+# opt_s = nloptr_tr(x0 = next_x0, eval_f = shadshoot, lb=next_x0 - 0.1, ub=next_x0 + 0.1, opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=-1, xtol_rel = -1, xtol_abs = -1, ftol_rel = -1 , ftol_abs = -1, stopval = sqrt(.Machine$double.eps), maxeval=1000, population = 10, print_level = ifelse(interactive(), 3, 0), ranseed = 2), sys=syseq2, parms=parms, times=times, target = c(0,0), inits=c(N0, P0))
+
+shad_shoot_trace = rbind(tracer(opt0_s), tracer(opt_s))
+scatterplot3js(shad_shoot_trace$xval1, shad_shoot_trace$xval2, log(shad_shoot_trace$fval))
+
+out_opt2 = lsoda(c(N = N0, P = P0, S1 = opt_s$solution[1], S2 = opt_s$solution[2]), times, syseq2, parms)
+#matplot(out_opt[,1], out_opt[,c("N", "P", "h")], type="l", lty=1, lwd=1, main=round(profout(out_opt)))
+
+out2 = as.data.frame(out_opt2)
+out_tidy2 = gather(out2, "variable", "value", -time)
+
+ggplot(filter(out_tidy2, variable %in% c("N", "P", "h")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Population or Control level")) +
+  theme_nr
+
+
+ggplot(filter(out_tidy2, variable %in% c("S1", "S2")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Shadow value")) +
+  theme_nr
+
+ggplot(filter(out_tidy2, variable %in% c("dN", "dP", "dS1", "dS2")), aes(x = time, y=value, col=variable)) + 
+  geom_line() + facet_wrap(~variable, ncol = 1, scales = "free")
+
+
+```
+
+NOTE: TRY THIS WITH BOUNDARY CONDITIONS OF MAINTAINING THE POPULATION.
+TRY USING ROOTFIND FOR ZERO RATHER THAN NLOPT
+
+MEMOIZE THE OPTIMIZATION FUNCTION AND KEEP A RECORD OF ALL THE VALUES
+
+
+```{r optshoot, echo=FALSE}
+set.seed(0)
+opt0_st <- nloptr_tr(x0 = opt$solution, eval_f = stateshoot, lb=c(-1e6, -1e6), ub=c(1e6, 1e6),
+               opts = list(algorithm = "NLOPT_GN_CRS2_LM", maxeval=1000, xtol_rel = -1, ftol_rel = -1, stopval = 0, print_level = ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times, target = c(98,0))
+
+opt0_st_trace = tracer(opt0_st)
+
+opt_st = nloptr_tr(x0 = opt0_st$solution, eval_f = stateshoot, lb=c(-Inf, -Inf), ub=c(Inf, Inf),
+             opts = list(algorithm = "NLOPT_LN_BOBYQA", maxeval=1000, xtol_rel = -1, ftol_rel = -1, stopval = 0, print_level = ifelse(interactive(), 3, 0), ranseed = .Random.seed[1]), sys=syseq2, parms=parms, times=times, target = c(98,0))
+
+opttrace_s = tracer(opt_st)
+opt_s
+
+
+
+out_opt3 = lsoda(c(N = N0, P = P0, S1 = opt0_st$solution[1], S2 = opt_s$solution[2]), times, syseq2, parms)
+#matplot(out_opt[,1], out_opt[,c("N", "P", "h")], type="l", lty=1, lwd=1, main=round(profout(out_opt)))
+
+out3 = as.data.frame(out_opt3)
+out_tidy3 = gather(out3, "variable", "value", -time)
+
+ggplot(filter(out_tidy3, variable %in% c("N", "P", "h")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Population or Control level")) +
+  theme_nr
+
+
+ggplot(filter(out_tidy, variable %in% c("S1", "S2")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Shadow value")) +
+  theme_nr
+
+ggplot(filter(out_tidy, variable %in% c("dN", "dP", "dS1", "dS2")), aes(x = time, y=value, col=variable)) + 
+  geom_line() + facet_wrap(~variable, ncol = 1, scales = "free")
+
+shad_shoot_trace = rbind(opt0_s_trace, opttrace_s)
+landscape = opt0_s_trace
+scatterplot3js(shad_shoot_trace$xval1, shad_shoot_trace$xval2, log(shad_shoot_trace$fval))
+scatterplot3js(opt0_s_trace$xval1[1:190], opt0_s_trace$xval2[1:190], log(opt0_s_trace$fval[1:190]))
+```
