@@ -16,7 +16,7 @@ load_micro_output_c = function(file) {
 
 #	n_col <- max(count.fields(file, sep = " "))
 #	output <- tbl_df(read.table(file ,sep=" ",fill=TRUE, col.names = 1:n_col))
-  output = read_delim('micro.txt', " ", col_names = FALSE)
+  output = read_delim(file, " ", col_names = FALSE)
 	colnames(output) = c("run", "start", "time", "control", as.character(0:(ncol(output)-5)))
 	#mutate_each_(output, funs(na_to_0), as.character(0:(ncol(output)-5)))
 	#output = output[, colSums(output[-c(1:3)]) !=0]
