@@ -143,7 +143,7 @@ P0 = 0
 S10 =  0
 S20 =  0
 init = c(N = N0, P = P0, S1 = S10, S2 = S20)
-times = seq(0,40, by=0.1)
+times = seq(0,40, by=1)
 ```
 
 ```{r optfuns, echo=FALSE}

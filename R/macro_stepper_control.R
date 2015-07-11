@@ -32,8 +32,8 @@ macro_state_c.stepproject = function(macro_state, parms, control, time) {
 macro_state_c_runopt = function(macro_state_init, parms, shadow_state_init, time, control_guess_init) {
 
 
-  alpha = 1 + (parms$macro_timestep - parms$micro_timestep*(parms$micro_relax_steps - 1))/(2*parms$macro_timestep)
-  project_timestep = parms$macro_timestep - parms$micro_timestep*(parms$micro_relax_steps)
+  alpha = 1 + (parms$macro_timestep - parms$micro_timestep*(parms$micro_relax_steps))/(2*parms$macro_timestep)
+  project_timestep = parms$macro_timestep - parms$micro_timestep*(parms$micro_relax_steps + 1)
 
   times = seq(time, parms$time_max, parms$macro_timestep)
 
@@ -47,6 +47,7 @@ macro_state_c_runopt = function(macro_state_init, parms, shadow_state_init, time
   alt = rep(FALSE, length(times))
   macro_states[1,] = macro_state_init
   shadow_states[1,] = shadow_state_init
+  macro_dfdx = matrix(NA, length(times), length(macro_state_init)^2)
 
   step = 1
   if(parms$progress) p <- progress_estimated(length(times))
@@ -62,33 +63,34 @@ macro_state_c_runopt = function(macro_state_init, parms, shadow_state_init, time
     c(time, time + parms$micro_relax_steps*parms$micro_timestep, time + (parms$micro_relax_steps + 1) * parms$micro_timestep),
     rbind(macro_state_init, opt$macro_state_relaxed, opt$macro_state_next)
   )
-  rbind(macro_state_init, opt$macro_state_relaxed, opt$macro_state_next)
-  macro_states[2,] = opt$macro_state_relaxed + macro_derivs[1,] * project_timestep
+  macro_dfdx[1, ] = as.vector(t(opt$macro_dfdx))
+  macro_states[2,] = opt$macro_state_next + macro_derivs[1,] * project_timestep
 
   shadow_derivs[step, 1] = -(parms$v +
-                               shadow_states[step, 1] * macro_second_derivs[step,1] / macro_derivs[step,1] +
-                               shadow_states[step, 2] * macro_second_derivs[step,2] / macro_derivs[step,1])
+                               shadow_states[step, 1] * opt$macro_dfdx[1, 1] +
+                               shadow_states[step, 2] * opt$macro_dfdx[1, 2])
   shadow_derivs[step,2] =
-    -(shadow_states[step, 1] * macro_second_derivs[step ,1] / macro_derivs[step ,2] +
-        shadow_states[step, 2] * macro_second_derivs[step ,2] / macro_derivs[step ,2])
+    -(shadow_states[step, 1] * opt$macro_dfdx[2, 1] +
+      shadow_states[step, 2] * opt$macro_dfdx[2, 2])
 
-  if(any(macro_derivs[step,] == 0)) {
-    alt_shadow_derivs = alt_shadow_derivs_calc(parms=parms, macro_state = macro_states[step,],
-                                               macro_deriv = macro_derivs[step,],
-                                               last_deriv_est = NULL,
-                                               macro_second_deriv = macro_second_derivs[step,],
-                                               shadow_state = shadow_states[step,],
-                                               control = controls[step,],
-                                               diff_step = 1)
-
-    shadow_derivs[step, macro_derivs[step,] == 0] = alt_shadow_derivs[macro_derivs[step,] == 0]
-    alt[step] = TRUE
-  }
+#   if(any(macro_derivs[step,] == 0)) {
+#     alt_shadow_derivs = alt_shadow_derivs_calc(parms=parms, macro_state = macro_states[step,],
+#                                                macro_deriv = macro_derivs[step,],
+#                                                last_deriv_est = NULL,
+#                                                macro_second_deriv = macro_second_derivs[step,],
+#                                                shadow_state = shadow_states[step,],
+#                                                control = controls[step,],
+#                                                diff_step = 1)
+#
+#     shadow_derivs[step, macro_derivs[step,] == 0] = alt_shadow_derivs[macro_derivs[step,] == 0]
+#     alt[step] = TRUE
+#   }
 
   shadow_states[2,] = shadow_states[1,] + shadow_derivs[1,]*parms$macro_timestep
 
   last_deriv_est = opt$macro_state_deriv
   last_second_deriv_est = macro_second_derivs[1,]
+  last_dfdx_est = opt$macro_dfdx
 
   if(parms$progress) p$tick()$print()
   for(step in seq_along(times)[-1]) {
@@ -99,34 +101,38 @@ macro_state_c_runopt = function(macro_state_init, parms, shadow_state_init, time
 
     controls[step,] = opt$control
     hamiltonian[step] = opt$hamiltonian
-    macro_derivs[step,] = (project_timestep*opt$macro_state_deriv + (parms$micro_relax_steps*parms$micro_timestep)*last_deriv_est)/parms$macro_timestep
+    macro_derivs[step,] = (project_timestep*opt$macro_state_deriv + ((parms$micro_relax_steps + 1)*parms$micro_timestep)*last_deriv_est)/parms$macro_timestep
     local_second_deriv = second_deriv_from_3pts(
       c(time, time + parms$micro_relax_steps*parms$micro_timestep, time + (parms$micro_relax_steps + 1) * parms$micro_timestep),
       rbind(macro_states[step,], opt$macro_state_relaxed, opt$macro_state_next)
     )
-    macro_second_derivs[step,] = (project_timestep*local_second_deriv + (parms$micro_relax_steps*parms$micro_timestep)*last_second_deriv_est)/parms$macro_timestep
+    macro_second_derivs[step,] = (project_timestep*local_second_deriv + ((parms$micro_relax_steps + 1)*parms$micro_timestep)*last_second_deriv_est)/parms$macro_timestep
 
     #macro_second_derivs[step,] = (opt$macro_state_deriv - last_deriv_est)/parms$macro_timestep
 
+    macro_dfdx_local = (project_timestep*opt$macro_dfdx + ((parms$micro_relax_steps + 1)*parms$micro_timestep)*last_dfdx_est)/parms$macro_timestep
+    macro_dfdx[step, ] = as.vector(t(macro_dfdx_local))
+
     shadow_derivs[step, 1] = -(parms$v +
-                                 shadow_states[step, 1] * macro_second_derivs[step,1] / macro_derivs[step,1] +
-                                 shadow_states[step, 2] * macro_second_derivs[step,2] / macro_derivs[step,1])
+                                 shadow_states[step, 1] * macro_dfdx_local[1, 1] +
+                                 shadow_states[step, 2] * macro_dfdx_local[1, 2])
     shadow_derivs[step,2] =
-      -(shadow_states[step, 1] * macro_second_derivs[step ,1] / macro_derivs[step ,2] +
-          shadow_states[step, 2] * macro_second_derivs[step ,2] / macro_derivs[step ,2])
+      -(shadow_states[step, 1] * macro_dfdx_local[2, 1] +
+          shadow_states[step, 2] * macro_dfdx_local[2, 2])
 
-    if(any(macro_derivs[step,] == 0)) {
-      alt_shadow_derivs = alt_shadow_derivs_calc(parms=parms, macro_state = macro_states[step,],
-                                                 macro_deriv = macro_derivs[step,],
-                                                 last_deriv_est = last_deriv_est,
-                                                 macro_second_deriv = macro_second_derivs[step,],
-                                                 shadow_state = shadow_states[step,],
-                                                 control = controls[step,],
-                                                 diff_step = 1)
-
-      shadow_derivs[step, macro_derivs[step,] == 0] = alt_shadow_derivs[macro_derivs[step,] == 0]
-      alt[step] = TRUE
-    }
+#
+#     if(any(macro_derivs[step,] == 0)) {
+#       alt_shadow_derivs = alt_shadow_derivs_calc(parms=parms, macro_state = macro_states[step,],
+#                                                  macro_deriv = macro_derivs[step,],
+#                                                  last_deriv_est = last_deriv_est,
+#                                                  macro_second_deriv = macro_second_derivs[step,],
+#                                                  shadow_state = shadow_states[step,],
+#                                                  control = controls[step,],
+#                                                  diff_step = 1)
+#
+#       shadow_derivs[step, macro_derivs[step,] == 0] = alt_shadow_derivs[macro_derivs[step,] == 0]
+#       alt[step] = TRUE
+#     }
 
     if(step != length(times)) {
       macro_states[step + 1, ] = opt$macro_state_next + (alpha*opt$macro_state_deriv + (1 - alpha)*last_deriv_est)*project_timestep
@@ -134,11 +140,12 @@ macro_state_c_runopt = function(macro_state_init, parms, shadow_state_init, time
     }
     last_deriv_est2 = last_deriv_est
     last_deriv_est = opt$macro_state_deriv
+    last_dfdx_est = opt$macro_dfdx
     last_second_deriv_est = macro_second_derivs[step,]
     if(parms$progress) p$tick()$print()
   }
-  return(cbind(times, macro_states, macro_derivs, macro_second_derivs, shadow_states, shadow_derivs, controls, hamiltonian, alt))
-
+  return(cbind(times, macro_states, shadow_states, macro_derivs, shadow_derivs, macro_dfdx, controls, hamiltonian))
+}
 
 alt_shadow_derivs_calc = function(parms=parms, macro_state, macro_deriv, last_deriv_est, macro_second_deriv, shadow_state, control, diff_step) {
   macro_state_alt = macro_state

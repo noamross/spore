@@ -1,6 +1,6 @@
 #' @import nloptr
 #' @export
-determine_control = function(macro_state, parms, shadow_state, time, control_guess) {
+determine_control = function(macro_state, parms, shadow_state, time, control_guess, verbose=FALSE) {
 
   Hamiltonian = function(control, macro_state, parms, shadow_state, time) {
     if (control < parms$control_min | control > parms$control_max) return(Inf)
@@ -40,7 +40,7 @@ determine_control = function(macro_state, parms, shadow_state, time, control_gue
     return(-H)
   }
 
-  opt = nloptr(x0 = control_guess, eval_f = Hamiltonian, lb = parms$control_min, ub = parms$control_max, opts = list(algorithm = "NLOPT_LN_BOBYQA", xtol_rel = 1e-4, xtol_abs=1e-4), macro_state=macro_state, parms=parms, shadow_state=shadow_state, time=time)
+  opt = nloptr(x0 = control_guess, eval_f = Hamiltonian, lb = parms$control_min, ub = parms$control_max, opts = list(algorithm = "NLOPT_LN_BOBYQA", xtol_rel = 1e-4, xtol_abs=1e-4, print_level = ifelse(verbose, 3, 0)), macro_state=macro_state, parms=parms, shadow_state=shadow_state, time=time)
 
   macro_weights = ceiling(macro_state) - macro_state
   macro_weights[macro_weights == floor(macro_weights)] = 1
@@ -72,7 +72,7 @@ determine_control = function(macro_state, parms, shadow_state, time, control_gue
   macro_state_relaxed = rowMeans(do.call(cbind, weighted_vals)[1:2,])
   macro_state_next = rowMeans(do.call(cbind, weighted_vals)[3:4,])
   macro_state_deriv = rowMeans(do.call(cbind, weighted_vals)[3:4,] - do.call(cbind, weighted_vals)[1:2,])/parms$micro_timestep
-  H = parms$v * macro_state[1] - parms$c * control +
+  H = parms$v * macro_state[1] - parms$c * opt$solution +
     shadow_state[1] * macro_state_deriv[1] +
     shadow_state[2] * macro_state_deriv[2]
 
@@ -93,7 +93,7 @@ determine_control = function(macro_state, parms, shadow_state, time, control_gue
 
   diff_indices = list(c(1,2), c(3,4))
   macro_dfdx_0 = lapply(diff_indices, function(diff_i) {Reduce(function(v1, v2) v2 - v1, half_weight_derivs[diff_i])})
-  macro_dfdx = c(macro_dfdx_0[[1]][1], macro_dfdx_0[[2]][2])
+  macro_dfdx = do.call(rbind, macro_dfdx_0)
 
   return(list(control = opt$solution, macro_state_relaxed = macro_state_relaxed, macro_state_next = macro_state_next, macro_state_deriv = macro_state_deriv, macro_dfdx= macro_dfdx, hamiltonian = H))
 }
