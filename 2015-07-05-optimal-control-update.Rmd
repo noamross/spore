@@ -94,13 +94,17 @@ syseq2 = function(t, state, parms) {
     dN = max(r*N*(1 - N/K), 0) - alpha*P - d*N
     if(isTRUE(all.equal(dN, 0))) dN = 0
     dP = lambda*P*N - mu*P - d*P - alpha*P - alpha*(P^2)/N + exp(-h)*N*lambda_ex
-    dS1 = -v - S1*(r - d - 2*(r/K)*N) - S2*(lambda*P + alpha*(P^2/N^2) + exp(-h) * lambda_ex) + delta*S1
-    dS2 = S1*alpha - S2*(lambda*N - mu - d - alpha - 2*alpha*P/N) + delta*S2
+    ddNdN= r - d - 2*(r/K)*N
+    ddPdN=lambda*P + alpha*(P^2/N^2) + exp(-h) * lambda_ex
+    ddNdP=-alpha
+    ddPdP=lambda*N - mu - d - alpha - 2*alpha*P/N
+    dS1 = -v - S1*ddNdN - S2*ddPdN + delta*S1
+    dS2 = -S1*ddNdP - S2*ddPdP + delta*S2
     derivs = c(dN=dN, dP=dP, dS1=dS1, dS2=dS2)
-    #    derivs = ifelse(abs(derivs) > .Machine$double.eps ^ 0.5, derivs, 0)
-    return(list(derivs, c(derivs, h=h))) # h_calc = h_calc, H_calc = H_calc, H_sel=H_sel, h=h)))
+    return(list(derivs, c(derivs, h=h, ddNdN=ddNdN, ddPdN=ddPdN, ddNdP=ddNdP, ddPdP=ddPdP)))
   })
 }
+
 
 hH_h = function(h, t, state, parms) {
   with(as.list(c(state, parms)), {
@@ -349,6 +353,15 @@ ggplot(filter(out_tidy2, variable %in% c("N", "P", "h")),
        aes(x=time, y=value, col=variable)) + 
   geom_line() +
   labs(list(x = "Time", y = "Population or Control level")) +
+  theme_nr
+
+out2 = as.data.frame(out_opt2)
+out_tidy2 = gather(out2, "variable", "value", -time)
+
+ggplot(filter(out_tidy2, variable %in% c("ddNdN", "ddPdN", "ddNdP", "ddPdP")),
+       aes(x=time, y=value, col=variable)) + 
+  geom_line() +
+  labs(list(x = "Time", y = "Derivatives")) +
   theme_nr
 
 
