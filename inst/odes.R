@@ -40,10 +40,14 @@ syseq = function(t, state, parms) {
     dN = max(r*N*(1 - N/K), 0) - alpha*P - d*N
     if(isTRUE(all.equal(dN, 0))) dN = 0
     dP = P*(lambda*N - mu - d - alpha - alpha*(P)/N) + exp(-h)*N*lambda_ex
-    dS1 = -v - S1*(r - d - 2*(r/K)*N) - S2*(lambda*P + alpha*(P^2/N^2) + exp(-h) * lambda_ex) + delta*S1
-    dS2 = S1*alpha - S2*(lambda*N - mu - d - alpha - 2*alpha*P/N) + delta*S2
+    ddNdN= r - d - 2*(r/K)*N
+    ddPdN=lambda*P + alpha*(P^2/N^2) + exp(-h) * lambda_ex
+    ddNdP=-alpha
+    ddPdP=lambda*N - mu - d - alpha - 2*alpha*P/N
+    dS1 = -v - S1*ddNdN - S2*ddPdN + delta*S1
+    dS2 = -S1*ddNdP - S2*ddPdP + delta*S2
     derivs = c(dN=dN, dP=dP, dS1=dS1, dS2=dS2)
-    return(list(derivs, c(derivs, h_calc=h_calc, H_calc = H_calc, h=h)))
+    return(list(derivs, c(derivs, h_calc=h_calc, H_calc = H_calc, h=h, ddNdN=ddNdN, ddPdN=ddPdN, ddNdP=ddNdP, ddPdP=ddPdP)))
   })
 }
 
