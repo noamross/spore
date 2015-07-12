@@ -1,16 +1,26 @@
-# Outline For Equation-Free Optimization Paper
+# Optimal Control in Individual-Based Models using Multi-Scale Approaches
 
 ## Introduction
+
+A central challenge in disease ecology is developing effective management strategies to control harmful diseases and limit their damage to wildlife, human health, and ecosystem services. Using models of the dynamics of hosts and disease, this can be formulated as an economic optimization problem: how to maximize the benefits of a strategy, or how to minimize the costs of meeting a disease control goal.  
 
 -   Control of disease as an economic problem: minimizing disease impacts in the face of limited resources for control.  [@Brandeau2003] Wildlife [@Horan2005; Bicknell1999; Fenichel2010]   (TODO See additional citations in OPENQUALS for variety of methods applied to invasives)
 -   Importance of individual-based processes (network contact structure, host and pathogen variation) in disease dynamics.
 -   IBMs work where population-level models do not capture appropriate dynamics or answer questions. [@Grimm2005]
+
 ### Other approaches
 
 -  The general approach to optimization of IBMs has been to apply control techniques
    to reduced-form models.
-   - Dynamic optimal control described in @Clark1990, using @Pontryagin1967
-   
+   - Dynamic optimal control described in @Clark1990, using 
+
+@Pontryagin1967 described the necessary conditions to determine the optimal control path for a dynamical system.  For a system with state variables $\S$ and in which a control varible $h$ modifies the dynamics
+
+$$
+
+
+
+
 -  Applying optimal control techniques to a simplified mean-field model [@Federico2013]
    can work for homogenous models, but yields non-optimal results under heterogeneity.
 -  Simplified models can be adjusted via non-mechanistic modifiers to closer match IBM
@@ -48,6 +58,40 @@ and epidemiological systems [@Cisternas2004; @Williams2015].
 
 ### Model system
 
+The model is a host-pathogen system similar to the macroparasite model of @Anderson1978, where individuals can host multiple pathogens of the same type, and suffer increased mortality with greater infection load.  The primary differences are the separation of birth and death processes and influx of infectious particles from outside the system.
+
+In the mean-field version of the system, the host population $N$ increases via density-dependent reproduction ($rN(1-N/K)$) and decreases via a constant intrinsic mortality rate ($d$), and and additional mortality for each infection in a host ($\alpha$). 
+
+$$\frac{dN}{dt} &= r N (1 - N/K) - \alpha P - d N$$
+
+The pathogen population $P$ grows with new infections that are density-dependent $\lambdaPN$, and decreases via pathogen mortality ($\mu P$), background host mortality ($dP$), and mortality due to the disease, which affects the most-infected hosts most $alpha(P + P/N)$.  The form of of this term depends on the assumption of a random (Poisson) distribution of pathogens among hosts.  Finally, additional parasites enter the system via external propagule pressure $\lambda_{ex}$. $\lambda_{ex}$ may be reduced by control effort $h(t)$, which reduces propugule pressure by a factor of $e^{h(t)}$. 
+
+$$\frac{dP}{dt} &= \lambda P N - \mu P - d P - \alpha P - \alpha P^2/N + e^{-h} N \lambda_{ex}$$
+
+It assumption of (1) a large population size adequately represented by continuous variables, (2) a constant distribution of parasites among individuals, and (3) no stochastic processes.
+
+The individual-based version of this represents the population as discrete counts of hosts and parasites. In the IBM, the state of the system is represented as a vector of individual hosts, each with a discrete number of infections.  Births, deaths, new infections and loss of infections (recovery) in each individual $i$ with number of infections $j$, occur stochastically according  to stochastic rates $r$:
+
+$$\begin{aligned}
+r_{i, birth} &= r(1-N/K) \\
+r_{i, death} &= \alpha j + d\\
+r_{i, infection} &= \lambda * \sum_{i=1}^N j_i + lambda_{ex} e^{h(t)},
+r_{i, recovery} &= \mu j
+\end{aligned}$$
+
+This stochastic process occurs in continuous time, implemented via Gillespie's stochastic simulation algorithm (SSA) [@Gillespie1976].
+
+Multi-scale simulation requires "lifting" and "restriction" functions, which map macro-scale system states to the micro-scale and vice-versa.  In this case, I generate micro-level states from the macro state (lifting) by drawing $N$ values for infected individuals from a Poisson distribution with a mean of $N/P$.  For the reverse (restriction), I simply sum the total host and parasite populations.
+
+### Control problem
+
+The management problem is to maximize the host population provides an ecosystem service of value $v$ per unit time, proportional to the host population size.  The control $h$, which consists of reducing the arrival rate of new infections, has a cost $c$.   Thus, the optimization problem is to maximize the net benefits over the course of a time period $T$, subject to the dynamics of the system.
+
+$$\max_{h >= 0} \int_{t=0}^T vN - ch \, dt\, \text{ s.t. } \dot N, \dot P$$.
+
+
+
+
 -   The IBM is an individual-based representation of the @Anderson1978 model of
     host-parisite dynamics.
     
@@ -78,6 +122,19 @@ in closed-form solutions, such as individual variation in traits or heterogenity
 ### EF Control Approach
 
 -   @Pontryagin1967's maximum principle.  
+
+For the equation-free simulation approach, the system dynamics are a "black box" which may be simulated but under which the derivatives $\dot N$ and $\dot P$ are unknown.
+
+At each time step, I simulate the system using the lift-simulate-restrict cycle repeatedly in order optimize
+
+The derivative of the shadow states can be derived via the *adjoint principle*:
+
+$$\frac{d\nu}{dt} = - \frac{d\mathcal H}{dx} = -\frac{d\pi}{dx} - \nu \frac{df}{dx}$$
+
+The profit function $\pi(\dot)$ is known, so $\frac{d\pi}{dx}$ can be determined analytically.  To calculate $\frac{df}{dx}$, I take advantage of the mapping between continuous population states at the macro-level and discrete counts at the micro-level.  When lifting a continuous macro-level to create an ensemble of random micro-level states, some will have populations rounded down from the continuous level, and some rounded up.  The difference in $x'$ between these populations is used to determine $x'/x$ without additional simulations.
+
+
+
 
 -   Use EF simulation to simulate dynamics of system as well as estimate derivatives via finite differencing
 -   Derive adjoint equations as functions of numerical estimates of host and and pathogen dynamics
