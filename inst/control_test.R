@@ -1,4 +1,5 @@
-devtools::load_all(".")
+#devtools::load_all(".")
+library(spore)
 library(dplyr)
 library(tidyr)
 library(magrittr)
@@ -12,6 +13,7 @@ library(rlist)
 closeAllConnections()
 parms = list(
   max_i = 100,
+  is = 0:100,
   lambda = 0.001,
   lambda_ex = 0.2,
   alpha = 0.1,
@@ -28,12 +30,13 @@ parms = list(
   micro_timestep = 0.05,
   micro_relax_steps = 1,
   project = FALSE,
-  n_sims = 5000,
+  n_sims = 100,
   control_min = 0,
-  control_max = 1000,
+  control_max = 100,
   v = 50,
   c = 200,
-  progress = TRUE
+  progress = TRUE,
+  micro_record = 0
   #micro_record = file("micro.txt", open="w+")
   #  macro_record = file("macro.txt", open="w")
 )
@@ -44,10 +47,10 @@ macro_state = restrict.micro_state(micro_state)
 shadow_state = c(97.57118, -174.8631)
 time = 0
 #parms$control_max = 0
-
-#Rprof("opt.prof")
-b = macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0)
-#Rprof(NULL)
+#determine_control(macro_state = macro_state, parms = parms, shadow_state = shadow_state, time = time, control_guess = 3, verbose = TRUE)
+Rprof("opt.prof")
+b = macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=3)
+Rprof(NULL)
 
 process_runs = . %>%
   list.filter(!("try-error" %in% class(.))) %>%
@@ -67,13 +70,13 @@ spread_runs = . %>% spread(variable, value) %>%
 run_profits = . %>% group_by(run) %>% summarize(value = sum(parms$v * N * parms$macro_timestep), cost = sum(parms$c *h * parms$macro_timestep), profit = value-cost)
 
 
-a = process_runs(control_runs)
+a = process_runs(list(b))
 a2 = spread_runs(a)
 profits = run_profits(a2)
 ggplot(subset(a, variable %in% c("N", "P")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(lwd=0.5)
 ggplot(subset(a, variable %in% c("N", "P", "h")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(lwd=0.5)
-ggplot(subset(a, variable %in% c("S1", "S2") & time < 20), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(lwd=0.5)
-ggplot(subset(a, variable %in% c("ddNdP")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(lwd=0.5)
+ggplot(subset(a, variable %in% c("S1", "S2")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(lwd=0.5)
+ggplot(subset(a, variable %in% c("ddNdN", "ddPdN", "ddNdP", "ddPdP")), aes(x=time, y=value, col=variable, group=paste0(run,variable))) + geom_line(lwd=0.5)
 
 
 # sum(filter(a, variable=="N")$value*parms$v - filter(a, variable=="h")$value * parms$c)

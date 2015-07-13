@@ -1,3 +1,4 @@
+#' @export
 micro_state_c.step_FULL = function(micro_state, parms, control, time) {
 	is = seq_along(micro_state) - 1
 	infections = sum(is*micro_state)
@@ -36,6 +37,7 @@ micro_state_c.step_FULL = function(micro_state, parms, control, time) {
 
 
 #' @importFrom compiler cmpfun
+#' @export
 micro_state_c.step = cmpfun(micro_state_c.step_FULL, options = list(optimize = 3))
 
 rates.micro_state = function(micro_state, parms, control) {
@@ -53,6 +55,7 @@ rates.micro_state = function(micro_state, parms, control) {
 	return(rates)
 	}
 
+#' @export
 micro_state_c.stepto = function(micro_state, parms, control, time, timeto, record=NULL, run = 1) {
 
 	time0 = time
@@ -64,7 +67,7 @@ micro_state_c.stepto = function(micro_state, parms, control, time, timeto, recor
 
 
 	while(time < timeto) {
-		out = micro_state_c.step(micro_state, parms, control, time)
+		out = micro_state_c_step(micro_state, parms, control, time)
 		if(out$time_next < timeto) micro_state = out$micro_state
 		time = out$time_next
 
@@ -87,7 +90,7 @@ micro_state_cpath.stepto = function(micro_state, parms, controlfn, time, timeto,
 
   while(time < timeto) {
     control = controlfn(time)
-    out = micro_state_c.step(micro_state, parms, control, time)
+    out = micro_state_c_step(micro_state, parms, control, time)
     micro_state = out$micro_state
     time = out$time_next
 

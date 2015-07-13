@@ -80,8 +80,10 @@ lift.macro_state_FULL = function(macro_state, parms) {
 	tabulate(bin = vals + 1, nbins = parms$max_i + 1)
 }
 
+#' @export
 lift.macro_state = cmpfun(lift.macro_state_FULL, options = list(optimize = 3))
 
+#' @export
 restrict.micro_state = function(micro_state) {
  c(sum(micro_state), 	sum(micro_state * (seq_along(micro_state) -1)))
 }
