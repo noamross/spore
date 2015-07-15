@@ -6,7 +6,7 @@ Date: 2014-12-08
 Author: Noam Ross
 Maintainer: Noam Ross <noam.ross@gmail.com>
 Description: Exploratory for now
-Imports: nloptr, dplyr, magrittr, polynom, tidyr, plyr, compiler,
+Imports: nloptr, dplyr, magrittr, polynom, tidyr, plyr, compiler, tracer,
     Rcpp, RcppArmadillo, BH
 License: MIT
 LinkingTo: Rcpp, RcppArmadillo, BH

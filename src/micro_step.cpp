@@ -1,6 +1,7 @@
 
 #include <RcppArmadillo.h>
 #include <RcppArmadilloExtensions/sample.h>
+#include <functional>
 #include <boost/unordered_map.hpp>
 
 using namespace Rcpp;
@@ -31,7 +32,7 @@ List micro_state_c_step(const NumericVector micro_state, const List parms, const
   NumericVector irate;
   IntegerVector samp;
   NumericVector rates = NumericVector::create(
-    lambda * infections + lambda_ex * exp(-control) * N,
+    (lambda * infections + lambda_ex * exp(-control)) * N,
     mu * infections,
     alpha * infections + (d * N),
     r * N * (1 - N/K)
@@ -43,9 +44,13 @@ List micro_state_c_step(const NumericVector micro_state, const List parms, const
 
   double rate = sum(rates);
   double time_next = time + Rf_rexp(1 / rate);
+
   IntegerVector options = IntegerVector::create(0, 1, 2, 3);
   IntegerVector event = RcppArmadillo::sample(options, 1, false, rates);
-  //Rcout << time << ", " << rates[0] << ", " << rates[1] << ", " << rates[2] << ", " << rates[3] << ", " << event[0] << " ," << N << ", " << infections << std::endl;
+  //Rcout << infections << std::endl;
+  //Rcout << as<arma::vec>(rates) << std::endl;
+  //Rcout << rate << ", " << rates[0] << ", " << rates[1] << ", " << rates[2] << ", " << rates[3] << ", " << event[0] << std::endl;
+
 
 
   switch(event[0]) {
@@ -115,10 +120,34 @@ NumericVector micro_state_c_stepto(const NumericVector micro_state, const List p
 }
 
 
-// No check for missing values
+// // No check for missing values
+// // [[Rcpp::export]]
+// NumericVector tabulate1(NumericVector x, const int max) {
+//   NumericVector counts(max + 1);
+//
+//   int n = x.size();
+//   for (int i = 0; i < n; i++) {
+//     int pos = x[i];
+//     if (pos < max && pos >= 0) counts[pos]++;
+//   }
+//
+//   return counts;
+// }
+//
+// //' @export
+// // [[Rcpp::export]]
+// NumericVector lift_macro_state(const NumericVector macro_state, const List parms) {
+//   NumericVector vals;
+//   vals = rpois(macro_state[0], macro_state[1]/macro_state[0]);
+//   NumericVector micro_state = tabulate1(vals, parms["max_i"]);
+// 	return micro_state;
+// }
+
+
+//' @export
 // [[Rcpp::export]]
-NumericVector tabulate1(NumericVector x, const int max) {
-  NumericVector counts(max + 1);
+IntegerVector tabulate2(IntegerVector x, const int max) {
+  IntegerVector counts(max + 1);
 
   int n = x.size();
   for (int i = 0; i < n; i++) {
@@ -132,10 +161,71 @@ NumericVector tabulate1(NumericVector x, const int max) {
 //' @export
 // [[Rcpp::export]]
 NumericVector lift_macro_state(const NumericVector macro_state, const List parms) {
-  NumericVector vals;
-  vals = rpois(macro_state[0], macro_state[1]/macro_state[0]);
-  NumericVector micro_state = tabulate1(vals, parms["max_i"]);
-	return micro_state;
+  IntegerVector N = seq_len(macro_state[0]);
+  int P = macro_state[1];
+  int max_i = parms["max_i"];
+  NumericVector prob = NumericVector::create();
+  IntegerVector buckets = RcppArmadillo::sample(N, P, true, prob);
+  IntegerVector bucket_counts = tabulate2(buckets, macro_state[0]);
+  IntegerVector out = tabulate2(bucket_counts, max_i);
+  out[0] = out[0] - 1;
+  return as<NumericVector>(wrap(out));
+}
+
+// NumericVector MulNumInt(const NumericVector &N, const IntegerVector I) {
+//   NumericVector out(N.size());
+//   for(int i = 0; i < out.size(); i++) {
+//   out[i] = N[i] * I[i];
+//   }
+//   return out;
+// }
+
+//' @export
+// [[Rcpp::export]]
+NumericVector restrict_micro_state(NumericVector micro_state) {
+  NumericVector macro_state(2);
+  for(int i = 0; i < micro_state.size(); i++) {
+    macro_state[0] += micro_state[i];
+    macro_state[1] += micro_state[i] * i;
+  }
+  return macro_state;
+}
+
+//' @export
+// [[Rcpp::export]]
+NumericVector macro_state_c_step(const NumericVector macro_state, const List parms, const double control, const double time) {
+   NumericVector out(3);
+   NumericVector micro_state = lift_macro_state(macro_state, parms);
+   List micro_state_out = micro_state_c_step(micro_state, parms, control, time);
+   NumericVector macro_state_out = restrict_micro_state(micro_state_out["micro_state"]);
+   out[0] = macro_state_out[0];
+   out[1] = macro_state_out[1];
+   out[2] = micro_state_out["time_next"];
+   return out;
+}
+
+//' @export
+// [[Rcpp::export]]
+NumericVector macro_state_c_step_diff(const NumericVector macro_state, const List parms, const double control, const double time) {
+  NumericVector out(3);
+  NumericVector micro_state = lift_macro_state(macro_state, parms);
+  List micro_state_out = micro_state_c_step(micro_state, parms, control, time);
+  NumericVector macro_state_out_diff = restrict_micro_state(micro_state_out["micro_state"]) - macro_state;
+  out[0] = macro_state_out_diff[0];
+  out[1] = macro_state_out_diff[1];
+  out[2] = micro_state_out["time_next"];
+  return out;
+}
+
+//' @export
+// [[Rcpp::export]]
+NumericVector macro_state_c_step_aves(const NumericVector macro_state, const List parms, const double control, const double time) {
+  NumericVector out = NumericVector::create(0, 0, 0);
+  int reps = parms["n_sims"];
+  for (int i = 0; i < reps; i++) {
+    out += macro_state_c_step_diff(macro_state, parms, control, time);
+  }
+  return out;
 }
 
 

@@ -37,15 +37,15 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
-// tabulate1
-NumericVector tabulate1(NumericVector x, const int max);
-RcppExport SEXP spore_tabulate1(SEXP xSEXP, SEXP maxSEXP) {
+// tabulate2
+IntegerVector tabulate2(IntegerVector x, const int max);
+RcppExport SEXP spore_tabulate2(SEXP xSEXP, SEXP maxSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type x(xSEXP);
     Rcpp::traits::input_parameter< const int >::type max(maxSEXP);
-    __result = Rcpp::wrap(tabulate1(x, max));
+    __result = Rcpp::wrap(tabulate2(x, max));
     return __result;
 END_RCPP
 }
@@ -58,6 +58,70 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const NumericVector >::type macro_state(macro_stateSEXP);
     Rcpp::traits::input_parameter< const List >::type parms(parmsSEXP);
     __result = Rcpp::wrap(lift_macro_state(macro_state, parms));
+    return __result;
+END_RCPP
+}
+// restrict_micro_state
+NumericVector restrict_micro_state(NumericVector micro_state);
+RcppExport SEXP spore_restrict_micro_state(SEXP micro_stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< NumericVector >::type micro_state(micro_stateSEXP);
+    __result = Rcpp::wrap(restrict_micro_state(micro_state));
+    return __result;
+END_RCPP
+}
+// macro_state_c_step
+NumericVector macro_state_c_step(const NumericVector macro_state, const List parms, const double control, const double time);
+RcppExport SEXP spore_macro_state_c_step(SEXP macro_stateSEXP, SEXP parmsSEXP, SEXP controlSEXP, SEXP timeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< const NumericVector >::type macro_state(macro_stateSEXP);
+    Rcpp::traits::input_parameter< const List >::type parms(parmsSEXP);
+    Rcpp::traits::input_parameter< const double >::type control(controlSEXP);
+    Rcpp::traits::input_parameter< const double >::type time(timeSEXP);
+    __result = Rcpp::wrap(macro_state_c_step(macro_state, parms, control, time));
+    return __result;
+END_RCPP
+}
+// macro_state_c_step_diff
+NumericVector macro_state_c_step_diff(const NumericVector macro_state, const List parms, const double control, const double time);
+RcppExport SEXP spore_macro_state_c_step_diff(SEXP macro_stateSEXP, SEXP parmsSEXP, SEXP controlSEXP, SEXP timeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< const NumericVector >::type macro_state(macro_stateSEXP);
+    Rcpp::traits::input_parameter< const List >::type parms(parmsSEXP);
+    Rcpp::traits::input_parameter< const double >::type control(controlSEXP);
+    Rcpp::traits::input_parameter< const double >::type time(timeSEXP);
+    __result = Rcpp::wrap(macro_state_c_step_diff(macro_state, parms, control, time));
+    return __result;
+END_RCPP
+}
+// macro_state_c_step_aves
+NumericVector macro_state_c_step_aves(const NumericVector macro_state, const List parms, const double control, const double time);
+RcppExport SEXP spore_macro_state_c_step_aves(SEXP macro_stateSEXP, SEXP parmsSEXP, SEXP controlSEXP, SEXP timeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< const NumericVector >::type macro_state(macro_stateSEXP);
+    Rcpp::traits::input_parameter< const List >::type parms(parmsSEXP);
+    Rcpp::traits::input_parameter< const double >::type control(controlSEXP);
+    Rcpp::traits::input_parameter< const double >::type time(timeSEXP);
+    __result = Rcpp::wrap(macro_state_c_step_aves(macro_state, parms, control, time));
+    return __result;
+END_RCPP
+}
+// timesTwo
+NumericVector timesTwo(double x);
+RcppExport SEXP spore_timesTwo(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< double >::type x(xSEXP);
+    __result = Rcpp::wrap(timesTwo(x));
     return __result;
 END_RCPP
 }

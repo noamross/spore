@@ -269,7 +269,7 @@ parms = list(
 
 
 micro_state = c(100, 0, rep(0, parms$max_i - 1))
-macro_state = restrict.micro_state(micro_state)
+macro_state = restrict_micro_state(micro_state)
 
 lapply(1:50, function(x) {
 micro_state_cpath.stepto(micro_state, parms, control_fun, time, timeto=parms$time_max, record=parms$micro_record, run = x)
@@ -306,3 +306,5 @@ ggplot() +
 profit_path
 profit_ode = sum(parms$v*out_opt[,"N"] - parms$c*out_opt[,"h"])
 profit_ode
+```
+

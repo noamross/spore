@@ -11,12 +11,37 @@ micro_state_c_stepto <- function(micro_state, parms, control, time, timeto, reco
     .Call('spore_micro_state_c_stepto', PACKAGE = 'spore', micro_state, parms, control, time, timeto, record, run)
 }
 
-tabulate1 <- function(x, max) {
-    .Call('spore_tabulate1', PACKAGE = 'spore', x, max)
+#' @export
+tabulate2 <- function(x, max) {
+    .Call('spore_tabulate2', PACKAGE = 'spore', x, max)
 }
 
 #' @export
 lift_macro_state <- function(macro_state, parms) {
     .Call('spore_lift_macro_state', PACKAGE = 'spore', macro_state, parms)
+}
+
+#' @export
+restrict_micro_state <- function(micro_state) {
+    .Call('spore_restrict_micro_state', PACKAGE = 'spore', micro_state)
+}
+
+#' @export
+macro_state_c_step <- function(macro_state, parms, control, time) {
+    .Call('spore_macro_state_c_step', PACKAGE = 'spore', macro_state, parms, control, time)
+}
+
+#' @export
+macro_state_c_step_diff <- function(macro_state, parms, control, time) {
+    .Call('spore_macro_state_c_step_diff', PACKAGE = 'spore', macro_state, parms, control, time)
+}
+
+#' @export
+macro_state_c_step_aves <- function(macro_state, parms, control, time) {
+    .Call('spore_macro_state_c_step_aves', PACKAGE = 'spore', macro_state, parms, control, time)
+}
+
+timesTwo <- function(x) {
+    .Call('spore_timesTwo', PACKAGE = 'spore', x)
 }
 
