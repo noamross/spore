@@ -51,7 +51,7 @@ time = 0
 #parms$control_max = 0
 #determine_control(macro_state = macro_state, parms = parms, shadow_state = shadow_state, time = time, control_guess = 3, verbose = TRUE)
 #Rprof("opt.prof")
-b = macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=3)
+b = .
 #Rprof(NULL)
 
 noamtools::proftable('opt.prof')

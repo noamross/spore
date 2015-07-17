@@ -32,6 +32,11 @@ macro_state_c_step <- function(macro_state, parms, control, time) {
 }
 
 #' @export
+macro_state_c_stepto <- function(macro_state, parms, control, time, timeto) {
+    .Call('spore_macro_state_c_stepto', PACKAGE = 'spore', macro_state, parms, control, time, timeto)
+}
+
+#' @export
 macro_state_c_step_diff <- function(macro_state, parms, control, time) {
     .Call('spore_macro_state_c_step_diff', PACKAGE = 'spore', macro_state, parms, control, time)
 }

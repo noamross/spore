@@ -86,6 +86,21 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// macro_state_c_stepto
+NumericVector macro_state_c_stepto(const NumericVector macro_state, const List parms, const double control, const double time, const double timeto);
+RcppExport SEXP spore_macro_state_c_stepto(SEXP macro_stateSEXP, SEXP parmsSEXP, SEXP controlSEXP, SEXP timeSEXP, SEXP timetoSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< const NumericVector >::type macro_state(macro_stateSEXP);
+    Rcpp::traits::input_parameter< const List >::type parms(parmsSEXP);
+    Rcpp::traits::input_parameter< const double >::type control(controlSEXP);
+    Rcpp::traits::input_parameter< const double >::type time(timeSEXP);
+    Rcpp::traits::input_parameter< const double >::type timeto(timetoSEXP);
+    __result = Rcpp::wrap(macro_state_c_stepto(macro_state, parms, control, time, timeto));
+    return __result;
+END_RCPP
+}
 // macro_state_c_step_diff
 NumericVector macro_state_c_step_diff(const NumericVector macro_state, const List parms, const double control, const double time);
 RcppExport SEXP spore_macro_state_c_step_diff(SEXP macro_stateSEXP, SEXP parmsSEXP, SEXP controlSEXP, SEXP timeSEXP) {
