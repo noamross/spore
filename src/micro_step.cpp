@@ -221,11 +221,14 @@ NumericVector macro_state_c_step_diff(const NumericVector macro_state, const Lis
 // [[Rcpp::export]]
 NumericVector macro_state_c_step_aves(const NumericVector macro_state, const List parms, const double control, const double time) {
   NumericVector out = NumericVector::create(0, 0, 0);
+  NumericVector out2(2);
   int reps = parms["n_sims"];
   for (int i = 0; i < reps; i++) {
     out += macro_state_c_step_diff(macro_state, parms, control, time);
   }
-  return out;
+  out2[0] = out[0]/out[2];
+  out2[1] = out[1]/out[2];
+  return out2;
 }
 
 
