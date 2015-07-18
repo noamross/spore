@@ -112,13 +112,13 @@ syseq2 = function(t, state, parms) {
 
 hH_h = function(h, t, state, parms) {
   with(as.list(c(state, parms)), {
-    h*( - cost - S2 * exp(-h) * N * lambda_ex)
+    h*( - c - S2 * exp(-h) * N * lambda_ex)
   })
 }
 
 H = function(h, t, state, parms) {
   with(as.list(c(state, parms)), {
-    val = v*N - cost*h + S1*(r*N*(1 - N/K) - alpha*P - d*N) + S2*(lambda*P*N - mu*P - d*P - alpha*P - alpha*(P^2)/N + exp(-h)*N*lambda_ex)
+    val = v*N - c*h + S1*(r*N*(1 - N/K) - alpha*P - d*N) + S2*(lambda*P*N - mu*P - d*P - alpha*P - alpha*(P^2)/N + exp(-h)*N*lambda_ex)
     return(val)
   })
 }
@@ -137,7 +137,6 @@ H = function(h, t, state, parms) {
 #   control_min = 0,
 #   control_max = 1000,
 #   v = 50,
-#   cost = 200,
 #   c = 200,
 #   delta = 0,
 #   progress = TRUE
@@ -183,7 +182,7 @@ times = seq(0,40, by=1)
 
 ```{r optfuns, echo=FALSE}
 profout = function(out) {
-  intval = integrate(splinefun(out[,"time"], (out[,"N"]*parms$v - (out[,"h"])*parms$cost)*exp(-out[,"time"]*parms$delta)),
+  intval = integrate(splinefun(out[,"time"], (out[,"N"]*parms$v - (out[,"h"])*parms$c)*exp(-out[,"time"]*parms$delta)),
                      lower = out[1,"time"], upper=tail(out[,"time"], 1))
   return(intval$value)
 }
@@ -391,7 +390,8 @@ plot(log(outtail$fval), outtail$xval1)
 plot(outtail$xval2, log(outtail$fval))
 scatterplot3js(outtail$xval1, outtail$xval2, log(outtail$fval))
 
-next_x0 =  c( 994.418947, -21566.367077 )
+
+
 # opt_s <- nloptr_tr(x0 = next_x0, eval_f = shadshoot, lb=c(0, -50000), ub=c(50000, -0),
 #                opts = list(algorithm = "NLOPT_LN_BOBYQA", maxeval=10000, xtol_abs = .Machine$double.eps , xtol_rel = -1, ftol_rel = -1, stopval = sqrt(.Machine$double.eps), print_level = ifelse(interactive(), 3, 0), ranseed = 1), sys=syseq2, parms=parms, times=times, target = c(0,0), inits=c(N0, P0))
 out_opt2 = lsoda(c(N = N0, P = P0, S1 = opt_s$solution[1], S2 = opt_s$solution[2]), times, syseq2, parms)
@@ -490,7 +490,6 @@ parms = list(
   control_min = 0,
   control_max = 0,
   v = 50,
-  cost = Inf,
   c = Inf,
   delta = 0,
   progress = TRUE

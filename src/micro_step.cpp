@@ -206,6 +206,16 @@ NumericVector macro_state_c_step(const NumericVector macro_state, const List par
 
 //' @export
 // [[Rcpp::export]]
+NumericVector macro_state_c_stepto(const NumericVector macro_state, const List parms, const double control, const double time, const double timeto) {
+   NumericVector out(3);
+   NumericVector micro_state = lift_macro_state(macro_state, parms);
+   NumericVector micro_state_out = micro_state_c_stepto(micro_state, parms, control, time, timeto);
+   NumericVector macro_state_out = restrict_micro_state(micro_state_out);
+   return macro_state_out;
+}
+
+//' @export
+// [[Rcpp::export]]
 NumericVector macro_state_c_step_diff(const NumericVector macro_state, const List parms, const double control, const double time) {
   NumericVector out(3);
   NumericVector micro_state = lift_macro_state(macro_state, parms);
