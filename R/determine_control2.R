@@ -35,10 +35,10 @@ determine_control2 = function(macro_state, parms, shadow_state, time, control_gu
 }
 
 
-Hamiltonian = function(control, macro_state, parms, shadow_state, time) {
-  output = sims_step(macro_state, parms, shadow_state, time, control = control)
-  return(-output$hamiltonian)
-}
+# Hamiltonian = function(control, macro_state, parms, shadow_state, time) {
+#   output = sims_step(macro_state, parms, shadow_state, time, control = control)
+#   return(-output$hamiltonian)
+# }
 
 #' @export
 sims_step2 = function(macro_state, parms, shadow_state, time, control) {

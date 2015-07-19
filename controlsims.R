@@ -26,7 +26,7 @@ parms = list(
   nocontrol = FALSE,
   progress = TRUE,
   micro_record = 0,
-  parallel_cores = 3
+  parallel_cores = 23
   #micro_record = file("micro.txt", open="w+")
   #  macro_record = file("macro.txt", open="w")
 )
@@ -66,7 +66,7 @@ simulate_macro_state = function(macro_state, parms, times, controlfn, n_runs) {
 
 library(dplyr)
 library(tidyr)
-sim_runs = simulate_macro_state(macro_state, parms, times, constctrl, 1000) %>%
+sim_runs = simulate_macro_state(macro_state, parms, times, constctrl, 100) %>%
   gather(variable, value, N, P)
 sim_run_subset = sim_runs %>% filter(run %in% sample.int(max(as.integer(run)), 10))
 sim_aves = sim_runs %>%
@@ -173,18 +173,18 @@ ggplot() +
   theme_nr
 
 parms$n_sims = 1000
-eq = macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0)
-library(rlist)
-process_runs = . %>%
-  list.filter(!("try-error" %in% class(.))) %>%
-  lapply(., as.data.frame) %>%
-  list.map(cbind(run=.i, .)) %>%
-  rbind_all %>%
-  rename(run=run, time=times, N=V2, P=V3, S1=V4, S2=V5, dN=V6, dP=V7, dS1=V8,
-         dS2=V9, ddNdN=V10, ddPdN=V11, ddNdP=V12, ddPdP=V13, h=V14,
-         hamiltonian=hamiltonian) %>%
-  gather(key=variable, value=value, -run, - time)
-eq_data = process_runs(list(eq))
+# eq = macro_state_c_runopt(macro_state_init = macro_state, parms=parms, shadow_state_init=shadow_state, time=0, control_guess_init=0)
+# library(rlist)
+# process_runs = . %>%
+#   list.filter(!("try-error" %in% class(.))) %>%
+#   lapply(., as.data.frame) %>%
+#   list.map(cbind(run=.i, .)) %>%
+#   rbind_all %>%
+#   rename(run=run, time=times, N=V2, P=V3, S1=V4, S2=V5, dN=V6, dP=V7, dS1=V8,
+#          dS2=V9, ddNdN=V10, ddPdN=V11, ddNdP=V12, ddPdP=V13, h=V14,
+#          hamiltonian=hamiltonian) %>%
+#   gather(key=variable, value=value, -run, - time)
+# eq_data = process_runs(list(eq))
 
 
 ggplot() +
@@ -195,7 +195,8 @@ ggplot() +
 #                alpha = 1) +
    geom_line(data = sim_aves, mapping = aes(x = time, y = mean, group = variable), color = "black", alpha = 1, lwd=0.5) +
    geom_line(data = ode_no_control_data, mapping = aes(x = time, y = value, color = variable), alpha = 1, lty = 1, lwd = 0.5) +
-  geom_line(data = subset(eq_data, variable %in% c("N", "P")), mapping = aes(x = time, y = value, color = variable), lty=1, lwd = 0.5) +
+#  geom_line(data = subset(eq_data, variable %in% c("N", "P")), mapping = aes(x = time, y = value, color = variable), lty=1, lwd = 0.5) +
+  geom_line(data = out_data, mapping = aes(x = time, y = value, color = variable), alpha = 1, lty = 1, lwd = 0.5) +
   theme_nr
 
   ggplot() +

@@ -7,12 +7,12 @@
 using namespace Rcpp;
 
 // micro_state_c_step
-List micro_state_c_step(const NumericVector micro_state, const List parms, const double control, const double time);
+List micro_state_c_step(const IntegerVector micro_state, const List parms, const double control, const double time);
 RcppExport SEXP spore_micro_state_c_step(SEXP micro_stateSEXP, SEXP parmsSEXP, SEXP controlSEXP, SEXP timeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< const NumericVector >::type micro_state(micro_stateSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector >::type micro_state(micro_stateSEXP);
     Rcpp::traits::input_parameter< const List >::type parms(parmsSEXP);
     Rcpp::traits::input_parameter< const double >::type control(controlSEXP);
     Rcpp::traits::input_parameter< const double >::type time(timeSEXP);
@@ -21,12 +21,12 @@ BEGIN_RCPP
 END_RCPP
 }
 // micro_state_c_stepto
-NumericVector micro_state_c_stepto(const NumericVector micro_state, const List parms, const double control, const double time, const double timeto, const int record, const int run);
+IntegerVector micro_state_c_stepto(const IntegerVector micro_state, const List parms, const double control, const double time, const double timeto, const int record, const int run);
 RcppExport SEXP spore_micro_state_c_stepto(SEXP micro_stateSEXP, SEXP parmsSEXP, SEXP controlSEXP, SEXP timeSEXP, SEXP timetoSEXP, SEXP recordSEXP, SEXP runSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< const NumericVector >::type micro_state(micro_stateSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector >::type micro_state(micro_stateSEXP);
     Rcpp::traits::input_parameter< const List >::type parms(parmsSEXP);
     Rcpp::traits::input_parameter< const double >::type control(controlSEXP);
     Rcpp::traits::input_parameter< const double >::type time(timeSEXP);
@@ -50,35 +50,35 @@ BEGIN_RCPP
 END_RCPP
 }
 // lift_macro_state
-NumericVector lift_macro_state(const NumericVector macro_state, const List parms);
+IntegerVector lift_macro_state(const IntegerVector macro_state, const List parms);
 RcppExport SEXP spore_lift_macro_state(SEXP macro_stateSEXP, SEXP parmsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< const NumericVector >::type macro_state(macro_stateSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector >::type macro_state(macro_stateSEXP);
     Rcpp::traits::input_parameter< const List >::type parms(parmsSEXP);
     __result = Rcpp::wrap(lift_macro_state(macro_state, parms));
     return __result;
 END_RCPP
 }
 // restrict_micro_state
-NumericVector restrict_micro_state(NumericVector micro_state);
+IntegerVector restrict_micro_state(IntegerVector micro_state);
 RcppExport SEXP spore_restrict_micro_state(SEXP micro_stateSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< NumericVector >::type micro_state(micro_stateSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type micro_state(micro_stateSEXP);
     __result = Rcpp::wrap(restrict_micro_state(micro_state));
     return __result;
 END_RCPP
 }
 // macro_state_c_step
-NumericVector macro_state_c_step(const NumericVector macro_state, const List parms, const double control, const double time);
+List macro_state_c_step(const IntegerVector macro_state, const List parms, const double control, const double time);
 RcppExport SEXP spore_macro_state_c_step(SEXP macro_stateSEXP, SEXP parmsSEXP, SEXP controlSEXP, SEXP timeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< const NumericVector >::type macro_state(macro_stateSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector >::type macro_state(macro_stateSEXP);
     Rcpp::traits::input_parameter< const List >::type parms(parmsSEXP);
     Rcpp::traits::input_parameter< const double >::type control(controlSEXP);
     Rcpp::traits::input_parameter< const double >::type time(timeSEXP);
@@ -87,12 +87,12 @@ BEGIN_RCPP
 END_RCPP
 }
 // macro_state_c_stepto
-NumericVector macro_state_c_stepto(const NumericVector macro_state, const List parms, const double control, const double time, const double timeto);
+IntegerVector macro_state_c_stepto(const IntegerVector macro_state, const List parms, const double control, const double time, const double timeto);
 RcppExport SEXP spore_macro_state_c_stepto(SEXP macro_stateSEXP, SEXP parmsSEXP, SEXP controlSEXP, SEXP timeSEXP, SEXP timetoSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< const NumericVector >::type macro_state(macro_stateSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector >::type macro_state(macro_stateSEXP);
     Rcpp::traits::input_parameter< const List >::type parms(parmsSEXP);
     Rcpp::traits::input_parameter< const double >::type control(controlSEXP);
     Rcpp::traits::input_parameter< const double >::type time(timeSEXP);
@@ -102,12 +102,12 @@ BEGIN_RCPP
 END_RCPP
 }
 // macro_state_c_step_diff
-NumericVector macro_state_c_step_diff(const NumericVector macro_state, const List parms, const double control, const double time);
+List macro_state_c_step_diff(const IntegerVector macro_state, const List parms, const double control, const double time);
 RcppExport SEXP spore_macro_state_c_step_diff(SEXP macro_stateSEXP, SEXP parmsSEXP, SEXP controlSEXP, SEXP timeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< const NumericVector >::type macro_state(macro_stateSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector >::type macro_state(macro_stateSEXP);
     Rcpp::traits::input_parameter< const List >::type parms(parmsSEXP);
     Rcpp::traits::input_parameter< const double >::type control(controlSEXP);
     Rcpp::traits::input_parameter< const double >::type time(timeSEXP);
@@ -116,12 +116,12 @@ BEGIN_RCPP
 END_RCPP
 }
 // macro_state_c_step_aves
-NumericVector macro_state_c_step_aves(const NumericVector macro_state, const List parms, const double control, const double time);
+NumericVector macro_state_c_step_aves(const IntegerVector macro_state, const List parms, const double control, const double time);
 RcppExport SEXP spore_macro_state_c_step_aves(SEXP macro_stateSEXP, SEXP parmsSEXP, SEXP controlSEXP, SEXP timeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< const NumericVector >::type macro_state(macro_stateSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector >::type macro_state(macro_stateSEXP);
     Rcpp::traits::input_parameter< const List >::type parms(parmsSEXP);
     Rcpp::traits::input_parameter< const double >::type control(controlSEXP);
     Rcpp::traits::input_parameter< const double >::type time(timeSEXP);
