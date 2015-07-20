@@ -33,7 +33,8 @@ parms = list(
   micro_relax_steps = 0,
   delta = 0,
   project = FALSE,
-  n_sims = 1000,
+  n_sims = 10000,
+  n_sims_jacob = 10000000,
   control_min = 0,
   control_max = 10,
   v = 500,
@@ -53,35 +54,38 @@ names(macro_state) = c("N", "P")
 shadow_state = c( 994.418947, -21566.367077 )
 time = 0
 
-ode_func = function(t, y, parms, shadow_state, control) {
-  parms=relist(parms)
-  a = macro_state_c_deriv_aves(macro_state=y, parms = parms, time = 0, control = control)
-  output =  c(dN = a$macro_state_deriv[1],
-               dP = a$macro_state_deriv[2])
-  cat(c(y, output, t), "\n")
-  return(list(output, output))
-}
-parmvec = unlist(as.relistable(parms))
-out = ode(y = macro_state, times = 0:40, parms=parmvec, func = ode_func, method="adams", rtol = 1e-1, atol=1, shadow_state=shadow_state, control=0)
 
-out_data = as.data.frame(out) %>%
-  gather("variable", "value", -time)
-
+parms$parallel_cores = 23
+parms$n_sims = 100000
+parms$n_sims_jacob = 100000000
+macro_state = c(999.999, 0.0001)
 init = c(macro_state, shadow_state); names(init) = c("N", "P", "S1", "S2")
 file.remove('out.txt')
 file.create('out.txt')
 parmvec = unlist(as.relistable(parms))
-system.time(out_opt <- ode(y = init, times = 0:40, parms=parmvec, func = opt_derivs, method = "euler"))
+system.time(out_opt <- ode(y = init, times = 0:40, parms=parmvec, func = opt_derivs, method = "euler")) #, rtol = 0.1, atol = c(1, 0.1, 10, 100), maxord = 2))
 output = read.csv("out.txt", header=FALSE)
 names(output) = c("time", "N", "P", "S1", "S2", "dN", "dP", "dS1", "dS2", "ddNdN", "ddPdN", "ddNdP", "ddPdP", "h", "H")
 
-parms$n_sims = 100000
-
-file.remove('out.txt')
-file.create('out.txt')
-parmvec = unlist(as.relistable(parms))
-system.time(out_opt <- ode(y = init, times = 0:40, parms=parmvec, func = opt_derivs, method = "euler"))
-output = read.csv("out.txt", header=FALSE)
-names(output) = c("time", "N", "P", "S1", "S2", "dN", "dP", "dS1", "dS2", "ddNdN", "ddPdN", "ddNdP", "ddPdP", "h", "H")
-
-
+#
+# ode_func = function(t, y, parms, shadow_state, control) {
+#   parms=relist(parms)
+#   a = macro_state_c_deriv_aves(macro_state=y, parms = parms, time = 0, control = control)
+#   output =  c(dN = a$macro_state_deriv[1],
+#               dP = a$macro_state_deriv[2])
+#   cat(c(y, output, t), "\n")
+#   return(list(output, output))
+# }
+# parmvec = unlist(as.relistable(parms))
+# out = ode(y = macro_state, times = 0:40, parms=parmvec, func = ode_func, method="adams", rtol = 1e-1, atol=1, shadow_state=shadow_state, control=0)
+#
+# out_data = as.data.frame(out) %>%
+#   gather("variable", "value", -time)
+#
+# file.remove('out.txt')
+# file.create('out.txt')
+# parmvec = unlist(as.relistable(parms))
+# system.time(out_opt <- ode(y = init, times = 0:40, parms=parmvec, func = opt_derivs, method = "euler"))
+# output = read.csv("out.txt", header=FALSE)
+# names(output) = c("time", "N", "P", "S1", "S2", "dN", "dP", "dS1", "dS2", "ddNdN", "ddPdN", "ddNdP", "ddPdP", "h", "H")
+#

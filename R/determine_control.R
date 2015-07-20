@@ -3,7 +3,7 @@ save_guess = new.env()
 #' @export
 opt_derivs = function(t, y, parms) {
   parms = relist(parms)
-  if(is.null(save_guess$guess)) save_guess$guess = 5
+  if(is.null(save_guess$guess)) save_guess$guess = (parms$control_max + parms$control_min)/2
   derivs = determine_control(y[1:2], parms, y[3:4], t,save_guess$guess)
   save_guess$guess = derivs$control
 
@@ -14,8 +14,8 @@ opt_derivs = function(t, y, parms) {
   output = c(dN = derivs$macro_state_deriv[1],
              dP = derivs$macro_state_deriv[2],
              dS1 = dS1, dS2 = dS2)
-  cat(t, y, output, derivs$control, derivs$H, "\n", sep = "\t")
-  cat(t, y, output, derivs$macro_state_jacobian, derivs$control, derivs$H, "\n", file = "out.txt", sep = ",", append = TRUE)
+  cat(format(round(c(t, y, output, derivs$control, derivs$macro_state_jacobian[c(1,3,2,4)], derivs$H), 5), scientific = FALSE, trim = TRUE, digits = 5), "\n", sep = "\t")
+  cat(t, y, output, derivs$macro_state_jacobian[c(1,3,2,4)], derivs$control, derivs$H, "\n", file = "out.txt", sep = ",", append = TRUE)
   return(list(output))
 }
 
@@ -48,7 +48,7 @@ determine_control = function(macro_state, parms, shadow_state, time, control_gue
                     time=time)
   }
 
-  result = macro_state_c_deriv_aves(macro_state, parms, time, opt$solution)
+  result = macro_state_c_deriv_aves(macro_state, parms = within(parms, n_sims <- n_sims_jacob), time, opt$solution)
   result$H = Hamiltonian(macro_state, result$macro_state_deriv, shadow_state, parms, time, opt$solution)
   result$control = opt$solution
   if(return_trace) {
@@ -60,8 +60,8 @@ determine_control = function(macro_state, parms, shadow_state, time, control_gue
 
 Hamiltonian = function(macro_state, macro_state_deriv, shadow_state, parms, time, control) {
   return(parms$v * macro_state[1] - parms$c * control +
-    shadow_state[1] * macro_state_deriv[1] +
-    shadow_state[2] * macro_state_deriv[2])
+           shadow_state[1] * macro_state_deriv[1] +
+           shadow_state[2] * macro_state_deriv[2])
 }
 
 objective = function(control, macro_state, shadow_state, parms, time) {
@@ -79,13 +79,21 @@ macro_state_c_deriv_aves = function(macro_state, parms, time, control) {
   macro_integer_expanded = expand.grid(lapply(macro_state_mod, function(z) c(floor(z), ceiling(z))))
   integer_dims = attr(macro_integer_expanded, "out.attrs")$dim
   macro_integer_list = as.list(as.data.frame(t(macro_integer_expanded)))
+  parallel_runs = parms$parallel_cores %/% length(macro_weights_long)
+  macro_integer_list_all = rep(macro_integer_list, each = parallel_runs)
   RNGkind("L'Ecuyer-CMRG")
-  integer_derivs = mclapply(macro_integer_list, mc.preschedule = FALSE, mc.cores = parms$parallel_cores, mc.set.seed = TRUE,
+  integer_derivs_all = mclapply(macro_integer_list_all, mc.preschedule = FALSE, mc.cores = parms$parallel_cores, mc.set.seed = TRUE,
                             FUN = function(macro_integers) {
-                              a = macro_state_c_step_aves(macro_integers, parms, control, time)
+                              a = macro_state_c_step_aves(macro_state = macro_integers,
+                                                          parms = within(parms, n_sims <- n_sims %/%  parallel_runs),
+                                                          control=control, time = time)
                               return(a)
                             })
-
+  integer_derivs = list()
+  parallel_indices = rep(1:length(macro_weights_long), each = parallel_runs)
+  for(i in 1:length(macro_weights_long)){
+    integer_derivs[[i]] = Reduce(`+`, integer_derivs_all[parallel_indices == i], c(0, 0))/parallel_runs
+  }
   weighted_ave_derivs = mapply(`*`, integer_derivs, macro_weights_long, SIMPLIFY = FALSE)
   ave_deriv = Reduce(`+`, weighted_ave_derivs, c(0,0))
 
