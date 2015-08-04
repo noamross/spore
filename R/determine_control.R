@@ -14,7 +14,9 @@ opt_derivs = function(t, y, parms) {
   output = c(dN = derivs$macro_state_deriv[1],
              dP = derivs$macro_state_deriv[2],
              dS1 = dS1, dS2 = dS2)
+  if(parms$progress) {
   cat(format(round(c(t, y, output, derivs$control, derivs$macro_state_jacobian[c(1,3,2,4)], derivs$H), 5), scientific = FALSE, trim = TRUE, digits = 5), "\n", sep = "\t")
+  }
   cat(t, y, output, derivs$macro_state_jacobian[c(1,3,2,4)], derivs$control, derivs$H, "\n", file = "out.txt", sep = ",", append = TRUE)
   return(list(output))
 }
@@ -70,6 +72,7 @@ objective = function(control, macro_state, shadow_state, parms, time) {
   return(output)
 }
 
+#' @import parallel
 #' @export
 macro_state_c_deriv_aves = function(macro_state, parms, time, control) {
   macro_weights = ceiling(macro_state) - macro_state
@@ -79,7 +82,7 @@ macro_state_c_deriv_aves = function(macro_state, parms, time, control) {
   macro_integer_expanded = expand.grid(lapply(macro_state_mod, function(z) c(floor(z), ceiling(z))))
   integer_dims = attr(macro_integer_expanded, "out.attrs")$dim
   macro_integer_list = as.list(as.data.frame(t(macro_integer_expanded)))
-  parallel_runs = parms$parallel_cores %/% length(macro_weights_long)
+  parallel_runs = max(parms$parallel_cores %/% length(macro_weights_long), 1)
   macro_integer_list_all = rep(macro_integer_list, each = parallel_runs)
   RNGkind("L'Ecuyer-CMRG")
   integer_derivs_all = mclapply(macro_integer_list_all, mc.preschedule = FALSE, mc.cores = parms$parallel_cores, mc.set.seed = TRUE,

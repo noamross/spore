@@ -1,0 +1,466 @@
+---
+title: "Optimal Control of Individual-Based Disease Models"
+author: "Noam Ross"
+date: "July 25, 2015"
+output: html_document
+bibliography: references.bib
+csl: ecology-letters.csl
+---
+
+
+```{r get_chunks, echo=FALSE, results='hide', message=FALSE, warning=FALSE, cache=FALSE}
+library(knitr)
+read_chunk('base_parms.R')
+read_chunk('compare_graphs.R')
+opts_knit$set(eval.after = "fig.cap")
+opts_chunk$set(echo=FALSE, cache=TRUE, message=FALSE, warning=FALSE)
+```
+
+## Introduction
+
+A central challenge in disease ecology is developing effective management 
+strategies to control harmful diseases and limit their damage to wildlife, 
+human health, and ecosystem services. Using models of the dynamics of hosts and 
+disease, this can be formulated as an economic optimization problem: how to 
+maximize the benefits of a strategy, or how to minimize the costs of meeting a 
+disease control goal.
+
+Disease management may be considered an economic problem: Given limited 
+resources, how to best manage disease to minimize impacts? Or, conversely, 
+given management targets, how to best limit the cost of disease control? 
+Research addressing such questions - economic epidemiology - is a growing field 
+[@Brandeau2003; @Rowthorn2009], though the literature to on the economics of 
+wildlife disease is more limited] [Bicknell1999; @Horan2005; Fenichel2010; 
+@Horie2013]. The bioeconomics of invasive species management is more broadly 
+explored [@Sharov1998; @Carrasco2010; @Haight2010; @EpanchinNiell2012], and has 
+many close parallels with the economics of disease management 
+
+Individual-based models (IBMs, also called agent-based models) simulate systems 
+based on the behavior and properties of individuals, rather than the population 
+as a whole. IBMs can simulate system behavior arising from interactions 
+difficult to describe in aggregate, including network contact structure, 
+spatial heterogeneity, variation in individual traits, all of which can affect 
+disease transmission. These individual behaviors and interactions in such 
+models result in emergent population-level dynamics that often can not be 
+expressed as a closed-form set of equations at the population level without 
+making strong assumptions about the distribution of individuals. [@Grimm2005]
+
+IBMs can and have been used to study disease economics in a number of ways.  
+The first, and most common, is to simulate IBMs of disease systems under a 
+number of discrete management scenarios and examine the outcomes of each 
+scenario to determine which does best according to performance criteria [TODO:REF]. 
+ Secondly, IBMs can incorporate adaptive or optimizing behavior within 
+individuals in order to better simulate disease dynamics [@Fenichel2010]. 
+
+Determining optimal control approaches using IBMs is more challenging. In the 
+absence of closed-form equations of overall system behavior, one can not derive 
+optimal control decisions analytically.  IBMs also suffer from "the curse of 
+dimensionality": high dimensionality results in very large state space that 
+can not be explored thoroughly.
+ 
+One approach to optimal controlling using IBMs has been to apply control 
+analytical techniques to reduced-form models. The optimization problem can be 
+solved on a set of ordinary differential equations that represent an 
+approximation of the IBM. Using this approach, a mean-field approximation of an 
+IBM can be used to determine an optimal control path when the IBM is 
+homogenous, but ay perform poorly under when the underlying system is 
+heterogenous [@Federico2013].  Another approach is to generate population-level 
+models with non-mechanistic equations that approximate IBM behavior. Such 
+methods can yield better results than mean-field models. However, the 
+applicability of these adjusted models is limited to the the range over which 
+they were parameterized, and model parameters are difficult to interpret 
+[Oremland 2015].
+
+Here I describe another approach to deriving optimal control strategies for 
+ecological systems using IBMs that uses equation-free, or multi-scale, modeling 
+[Armaou2004] to estimate mean dynamics of an IBM numerically and estimate 
+quantities that allow the use of analytic tools to determine an optimal control 
+path.  First, I introduce the equation-free modeling framework.  I then 
+describe a disease system and equivalent ODE and IBM models.  I solve the ODE 
+system using classic tools and the IBM model using the methods described, 
+showing that they generate the same solution.
+
+## Equation-free modeling
+
+Equation-free (EF), or multi-scale, modeling (@Armaou2004, but see 
+@Kevrekidis2009a for review) is a method for capturing and analyzing 
+population-scale dynamics of individual-based models while bypassing the 
+deriving population-scale equations, which exist conceptually but often can not 
+be derived. It has been used in a variety of applications, including evolution, 
+movement ecology and epidemiology [@Cisternas2004; [@Erban2006; Gross2008a; 
+Raghib2010; @Williams2015]
+
+In EF modeling, the population-scale dynamics are estimated using bursts of the 
+IBM. At each time step, a "lifting" operator maps the population-scale state to 
+a distribution of possible individual-scale states. Each of these instances of 
+the individual-based model is simulated for a short burst of time, then they 
+are collapsed back to a single population-level state with a "restricting 
+function."  
+
+Some information about the IBM state is lost by restriction and generated by 
+lifting.  Thus, these EF is another form of model reduction, albeit one that 
+offers alternatives to mean-field and other approximations.  Lifting and 
+restriction operators may be chosen to capture the important heterogeneities 
+represented in the IBM and relevant to the problem at hand.  While these 
+functions must be chosen with care, the rules governing the IBM may be a "black 
+box" within the EF framework.
+
+The system dynamics may be simulated by the lift-simulate-restrict cycle alone. 
+However, it is computationally advantageous to use in conjunction with a 
+projection step. In this approach, rather than simulating for an entire 
+time-step, the simulation is run for a fraction of a time step to obtain an 
+estimate the time derivative of the population-scale system. The 
+population-scale state is then projected forward using a differential equation 
+solver. 
+
+## Optimal control
+
+@Clark1990 describes in detail the methods of deriving an optimal control path 
+for dynamical ecological systems, which I briefly review here. The optimal path 
+of a control variable over time $(h(t))$ is that which maximizes the integral 
+of a profit function $\pi(x, h, t)$ over a time period $(T_0, T)$, subject to 
+the dynamics of the system state $x$, the dynamics of which are governed by 
+$\frac{dx}{dt} =  f(x, h, t)$.  That is,
+
+$$\max_{h >= 0} \int_{T_0=0}^T \pi(x, h, t) \, dt\, 
+  \text{ subject to } \frac{dx}{dt} =  f(x, h, t)$$.
+
+
+
+Where $x$ and $h$ may be vectors representing the system state and control 
+variables.
+
+Various numerical methods can be used to find the optimal control path. Where 
+$f(x, t, h)$ has a closed-form, the control path can be derived analytically by 
+maximizing *Hamiltonian* ($\mathcal H$) equation:
+
+$$\mathcal H = \pi(x, h, t) + \eta f(x, h, t)$$.
+
+Here $\eta$ is the "shadow value" of the system state $x$, and represents the 
+per-unit value of the contribution $x$ to *future* profit.  The dynamics of 
+$\eta$ are governed by the adjoint equation: 
+
+$$\frac{d\eta}{dt} = - \frac{\partial \mathcal H}{\partial dx} = 
+    -\frac{\partial \pi(\cdot)}{\partial x} + 
+     \eta(t) \frac{\partial f(\cdot)}{\partial x}$$
+
+To find the optimal path for the control $h$, we solve for the maximum of 
+$\mathcal H$ over the time period $(T_0, T)$.  The local optimum of $\mathcal 
+H$ can be determined by finding $h$ where ${\partial \mathcal H}{\partial dh} = 
+0$.
+
+The resulting solution for $h(t)$ is dependent on the initial values of of $x$ 
+and $\eta$, $(x_0, \eta_0)$.  In many systems, some or all of these values are 
+unknown.  In many cases the terminal values ($x_T$) are constraints on the 
+problem. In the case of unconstrained problems, the optimal path is that that 
+ends with $\eta_T = 0$.  In these cases, initial conditions can be determined 
+numerically using a boundary problem solver.
+
+## A framework equation-free optimal control
+
+The method described above requires a closed-form expression of $dx/ft = f(x, 
+h, t)$ in order to derive the optimal control path $h(t)$.  When the system of 
+interest is modeled using an IBM, this population-level expression may not be 
+available, even while our objective function $\pi(\cdot)$ is expressed in terms 
+of population-level state.   The EF framework can be used to calculate an 
+optimal control path for an IBM, however, by numerically estimating $f(\cdot)$ 
+and the values derived from it.  
+
+In EF optimal control, $f(\cdot) = dx/dt, d\eta/dt$, and $h_{opt}(t)$, are 
+estimated numerically at each time step in a differential equation solver.  
+Starting at $t = T_0$, with initial conditions $x_0$ and $\eta_0$, $f(\cdot)$ 
+is estimated numerically under an initial guess for $h(t)$ using a short burst 
+of the lifting-simulation-restriction cycle.  Using this value of $f(\cdot)$, 
+the value of $\mathcal H$ is calculated.  Using a numerical optimizer, this is 
+repeated with refined values of $h(t)$ until a value that maximizes $\mathcal 
+H$,  $h_{opt}(t)$ is found.
+
+To determine $d\eta / dt$, an value for $\frac{\partial f(\cdot)}{\partial x}$ 
+is required.  This is estimated by perturbing $x$ by a small value, $\Delta x$, 
+calculating $f(x + \Delta x, h_{opt}, t)$ and estimating $\frac{\partial 
+f(\cdot)}{\partial x}$ by finite differencing.  
+
+$dx/dt$ and $d\eta/dt$ can then be passed to a differential equation solver to 
+project the forward system in time and calculate the paths of $x(t), \eta(t)%, 
+and $h(t)$.  As in the optimal control scenario above, a boundary problem 
+solver can then be used to determine initial values for $x_0$ and $\eta_0$ 
+based on the constraints of the problem.
+
+## Model system
+
+I demonstrate the method described above on a problem of maintaining a wildlife 
+population in the face of an invading disease.  The model is a host-pathogen 
+system similar to the macroparasite model of @Anderson1978, where individuals 
+can host multiple pathogens of the same type, and suffer increased mortality 
+with greater infection load. The primary differences are the separation of 
+birth and death processes and the influx of infectious particles from outside 
+the system.
+
+The control problem is to maximize net benefit of ecosystem services derived 
+from the wildlife population by costly control measures reducing the influx of 
+disease.  This is a problem faced in numerous systems, such as the conservation 
+of frog populations in the face of *Batrachochytrium dendrobatidis* (chytrid 
+fungus), tanoak populations being invaded by *Phytophthora ramorum* (sudden oak 
+death), or bat populations at risk from *Geomyces destructans* (white nose 
+syndrome).  In each of these systems, invasion of the disease reduces local 
+populations of hosts, but local populations can be protected from arrival of 
+new disease with some efficacy by various measures, such as education, 
+quarantine, disinfection, and culling nearby infected populations.
+
+A deterministic, mean-field, continuous model of this system can be represented 
+by a small set od ODEs.  In this model, the host population $N$ increases via 
+density-dependent reproduction ($rN(1-N/K)$) and decreases via a constant 
+intrinsic mortality rate ($d$), as well as additional mortality $\alpha$ for 
+each infection $P$ in a host:
+
+$$\frac{dN}{dt} = r N (1 - N/K) - \alpha P - d N$$
+
+The pathogen population $P$ grows via a spore production and estabilishment 
+rate $lambda$  and via density-dependent contact between hosts, totaling 
+$\lambda P N$.  $P$ decreases via pathogen mortality ($\mu P$), background host 
+mortality ($dP$), and mortality due to the disease, which affects the 
+most-infected hosts most $alpha (P + P/N)$. The form of this term depends on 
+the assumption of a random (Poisson) distribution of pathogens among hosts 
+[@Anderson1978]. Finally, additional parasites enter the system via external 
+propagule pressure $\lambda_{ex}$. $\lambda_{ex}$ may be reduced by control 
+effort $h(t)$, which reduces propagule pressure by a factor of $e^{h(t)}$.
+
+$$\frac{dP}{dt} = \lambda P N - \mu P - d P - \alpha P - \alpha P^2/N + e^{-h} 
+N \lambda_{ex}$$
+
+This model assumes (1) a large population size adequately represented by 
+continuous variables, (2) a constant distribution of parasites among 
+individuals, and (3) no stochastic processes.
+
+The individual-based version of this model relaxes these assumptions. In the 
+IBM, the state of the system is represented as a set of individual hosts, each 
+with a discrete number of infections. Births, deaths, new infections and loss 
+of infections (recovery) in each individual $i$ with number of infections 
+$j_i$, occur stochastically according to rates $r$:
+
+$$\begin{aligned}
+r_{i, \, birth} &= \max \left\{ r(1-N/K), \, 0 \right\} \\
+r_{i, \, death} &= \alpha j_i + d \\
+r_{i, \, infection} &= \lambda \sum_{n=1}^N j_n + \lambda_{ex} e^{h(t)} \\
+r_{i, \, recovery} &= \mu j_i
+\end{aligned}$$
+
+This stochastic process occurs in continuous time, implemented via Gillespie's 
+[-@Gillespie1976] stochastic simulation algorithm (SSA).
+
+Table 1 shows the model parameters used for all models in this paper.
+
+```{r loadpkgs}
+```
+
+```{r setparms}
+```
+
+| Parameter | Symbol | Value |
+|-----------|--------|-------|
+| birth rate | $r$  | `r format(parms$r)` |
+| carrying capacity | K | `r format(parms$K)` |
+| intrinsic host mortality rate | $d$ | `r format(parms$d)` |
+| intrinsic pathogen mortality rate | $\mu | `r format(parms$mu)` |
+| additional mortality per infection | $\alpha$ | `r format(parms$alpha)` |
+| contact rate | $\lambda$ | `r format(parms$lambda)` |
+| external spore arrival rate | $\lambda_{ex}$ | `r format(parms$lambda_ex)` |
+| initial host population | $N_0$ | `r format(macro_state[1])` |
+| initial pathogen population | $P_0$ | `r format(macro_state[2])` |
+| benefit per host per unit time | $v$ | `r format(parms$v)` |
+| cost of control per unit time  | $c$ | `r format(parms$c)` |
+| time period | $T$ | `r format(parms$time_max)` |
+
+  Table: Parameters for the host-pathogen models and management problem
+
+### Management problem
+
+For the management problem, the objective function is to is to maximize 
+ecosystem service provided by the host population, $v$, per host per unit time. 
+The control variable, $h$, represents of reducing the arrival rate of new 
+infections and each unit of effort has a cost $c$. Thus, the optimization 
+problem is to maximize the net benefits over the course of a time period $T$, 
+subject to the dynamics of the system.
+
+$$\max_{h >= 0} \int_{t=0}^T  \pi(x,h,t), dt\, \text{ s.t. } \frac{dx}{xt} = 
+f(x, h, t) $$
+
+For the mean-field ODE system, one can derive the Hamiltonian equation based on 
+this problem, which must be optimized for all time points, the shadow values 
+$\nu_1$ and $\nu_2$, and an expression that can be solved for $h(t)$:
+
+$$\begin{align}
+\mathcal{H} &= vN - ch + \\
+&\nu_1 \left( rN(1 - N/K) - \alpha P - d N \right) + \\
+&\nu_2 \left(\lambda P N - \mu P - d P - \alpha P - \alpha (P^2)/N + e^{-h}  N 
+\lambda_{ex} \right)
+
+\frac{d\nu_1}{dt} &= -v - \nu_1 \left(r - d - 2r \frac{N}{K}\right) - \nu_2 
+\left(\lambda P + \alpha \frac{P^2}{N^2} + e^{-h} \lambda_{ex} \right) + \delta 
+\nu_1 \\
+
+\frac{d\nu_2}{dt} &= \nu_1 \alpha - \nu_2 \left(\lambda N - \mu - d - \alpha - 
+\frac{2 \alpha P}{N} \right) + \delta \nu_2 \\
+
+0 &= h \left( -c - \nu_2 e^{-h} N * \lambda_{ex} \right)
+\end{align}$$
+
+### Numerical approach
+
+To solve the management problem under the IBM system, I use the equation-free 
+approach described above.  As in this case, the Hamiltonian
+can only be expressed in terms of the estimated values for $f(\cdot)$.  I use 
+dot notation $(\dot P \approx dP/dt)$ to denote derivatives estimated the EF 
+lift-simulate-restrict cycle:
+
+$$\begin{align}
+\bar{\mathcal{H}} &= vN - ch + \nu_1 \dot N + \nu_2 \dot P \\
+\dot \nu_1 &= -v - \nu_1 \frac{d \dot N}{dN} - \nu_2 \frac{d \dot P}{dN} \\
+\dot \nu_2 &= -v - \nu_1 \frac{d \dot N}{dP} - \nu_2 \frac{d \dot P}{dP}
+\end{align}$$
+
+I use a lifting function that’s randomly distributes $P$ infections across $N$ 
+individuals (a Poisson Process).  For the reverse (restriction), I simply sum 
+the total host and parasite populations.  When mapping from non-integer 
+macro-states, simulations are run with all combinations of macro-variables 
+rounded up and down, and the overall results is determined by a weighted 
+average of these simulations.
+
+To determine the estimated control value at each time point $(\bar h_{opt})$, I 
+use a numerical maximization routine (BOBYQA, @Powell2009), to find the value 
+of $h$ that maximizes the estimated Hamiltonian $\bar{\mathcal{H}}$.
+
+While the EF framework can be used on "black box" simulators, taking advantage 
+of some properties of the individual-based model can improve computational 
+efficiency and performance of the method. In this case, I do so in two ways. 
+First, as the IBM uses the Gillespie simulation algorithm, I use a single 
+variable-time "Gillespie" micro-step rather than a fixed-period micro-step. 
+This allows me to estimate $\dot N$ and $\dot P$ directly at each time step 
+$t$, avoiding the error incurred with a fixed micro-step which would estimate 
+these values at a time slightly offset from $t$. Second, rather than rather 
+than estimating $d \dot X /dX$ terms above by perturbing the system after 
+solving for $\bar h_{opt}$, I take advantage of the mapping between continuous 
+population states at the macro-level and discrete counts at the micro-level. 
+When lifting a continuous macro-level to create an ensemble of random 
+micro-level states, some will have populations rounded down from the continuous 
+level, and some rounded up. The difference in $\dot X$ between these instances 
+of the simulation is used to determine $d \dot X/ dX$ without additional 
+simulations.
+
+The system is integrated using a simple forward Euler integrator and then a 
+boundary problem solved via a shooting algorithm.  More sophisticated and 
+computationally intense integrators, such as Runge-Kutta and Adams-Bashford may 
+be used for greater accuracy [@Williams2015].
+
+As both the maximization routine and the forward itegrator are quite sensitive 
+to noise in the estimated derivatives, solving the system required large 
+ensembles of IBM simulations in the EF cycle.  To calculate $\dot h_{opt}$, I 
+used `r format(parms$n_sims)` simulations, and on the the final iteration in each time 
+step, `r format(parms$n_sims_jacob)` simulations. The entire algorithm described above took 
+approximately 8 hours to solve on a computer with 24 2.2GHz Intel Processors.  Code for the simulation is archived on GitHub and Zenodo. 
+[TODO:ARCHIVE AND REFERENCE CODE].
+
+Results
+-------
+
+```{r ODEsim, include=FALSE}
+```
+```{r IBMsim, include=FALSE}
+```
+```{r EFsim, include=FALSE}
+```
+
+Figure 1 shows trajectories for the system in the absence of control, simulated 
+in three ways: the mean-field ODE system, `r format(parms$n_comp_sims)` simulations 
+of the IBM, and the expected trajectory as estimated by the equation-free model 
+with `r format(parms$n_sims)` simulations per step.
+
+The general trajectory of the system is similar in all cases.  In the absence 
+of control, the disease invades the system rapidly. This reduces the population 
+via increased overall mortality rate for hosts, after a peak in the pathogen 
+population, the system reaches a stable equilibrium with a suppressed host 
+population.
+
+While the trajectory of all three models is similar, the EF value is closer to 
+the mean-field ODE than the average of the IBM trajectories.  The match between 
+the EF and the mean-field ODE model confirms that the Poisson lifting function 
+is equivalent to the Poisson assumption in the set of ODEs, making the two 
+models functionally equivalent. The deviation of the mean of many IBMs from the 
+EF and ODE models can be attributed to Jensen's [-@Jensen1906] inequality.
+
+Figure 2 shows the optimal control path 
+
+In the ODE system, the internal equilibrium can be calculate as [TODO].
+
+The individual-based, stochastic model results in figure. Shown are the mean 
+path and the 95% confidence intervals for the system state through time,
+
+-   IBM and ODE versions of the model have different behavior
+-   EF version of IBM correctly produces results similar to overall IBM:
+    -   Plots: Dynamics of ODE, IBM (average of many runs), and EF versions of 
+model under conditions of similar behavior (large population, equilibrium), and 
+different behavior (small population, transients)
+-   IBM and ODE have different responses to the the same controls.
+    -   Characteristics of the control path as solved for the ODE
+        -   Plot: ODE dynamics under control
+        -   Plot: IBM dynamics (average and several example runs) under 
+ODE-derived control
+-   EF optimization yields better results for the IBM than ODE-derived control
+    -   Plot: IBM dynamics under EF optimization
+    -   Plot: Compare net present value of
+        -   IBM and ODE models without control
+        -   IBM and ODE models with ODE-derived control
+        -   IBM under EF-derived control.
+
+Discussion
+----------
+
+### Implications for disease control
+
+-   [Short section, this is really a separate, less method-intense paper]
+-   External control only has limitations; best used to reduce impacts, not 
+prevent outbreak
+-   Quantitative implications of stochasticity
+
+### Methodological issues
+
+This IBM is relatively simple. It lacks several features that are trivial to 
+incorporate into an IBM but challenging to represent in closed-form solutions, 
+such as individual variation in traits or heterogenity in the host contact 
+structure.
+
+
+-   Importance of lifting, restriction functions
+-   Sensitivity to number of simulations and micro-step size, integration 
+algorithms
+-   Boundary conditions. ODE can provide guidance in values.
+
+### Broad implications
+
+-   EF-based optimization has applications on a wide variety of models and 
+situations.
+-   Complement to discrete approaches, ensure agreement with theory.
+
+-   Still a model reduction approach, but reduction takes place at a different 
+scale
+-   Advantages
+    -   Continuous in time and space.
+    -   Interpretability. Model-fitting approaches to reduced models leave us 
+with uninterpretable values.
+    -   Also applies to black-box processes
+-   Challenges
+    -   Computational cost (though many methods have this, and Hamiltonian 
+approach avoids much of it)
+    -   Lifting and restriction functions must be chosen carefully. Model 
+reduction occurring at the micro-scale.
+    -   Software
+        -   Some details of R package
+-   Stochasticity: The EF model produces an estimate of the IBM's *mean* 
+behavior, and thus an optimal control path for the mean conditions. The primary 
+utility of the method is not in stochastic control. [See a host of other 
+methods for this: Talk to Carl/Jim]. Rather, its value lies in optimizing where 
+the IBM behaviors are not easily expressed in closed form equations. Stochastic 
+behavior makes the method computationally difficult. The variation in outcomes 
+is amplified in the estimate of the derivatives and even more so in the 
+estimation of of the Jacobian matrix. \#\#\# Future work
+

@@ -12,6 +12,7 @@ load_micro_output = function(file) {
 }
 
 #' @import tidyr dplyr magrittr readr
+#' @export
 load_micro_output_c = function(file) {
 
 #	n_col <- max(count.fields(file, sep = " "))
@@ -24,7 +25,7 @@ load_micro_output_c = function(file) {
 	output = gather_(data = output, key_col = "infections", value_col = "population" , gather_cols = names(output)[-c(1:4)], convert=TRUE)
 
 }
-
+ #' @export
 na_to_0 = function(x) replace(x, is.na(x), 0)
 
 #' @import dplyr magrittr

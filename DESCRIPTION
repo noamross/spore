@@ -7,6 +7,6 @@ Author: Noam Ross
 Maintainer: Noam Ross <noam.ross@gmail.com>
 Description: Exploratory for now
 Imports: nloptr, dplyr, magrittr, polynom, tidyr, plyr, compiler, tracer,
-    Rcpp, RcppArmadillo, BH
+    Rcpp, RcppArmadillo, BH, parallel
 License: MIT
 LinkingTo: Rcpp, RcppArmadillo, BH

@@ -1,4 +1,4 @@
-#devtools::load_all(".")
+mac#devtools::load_all(".")
 #library(spore)
 library(dplyr)
 library(tidyr)
