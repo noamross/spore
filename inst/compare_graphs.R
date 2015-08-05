@@ -68,7 +68,9 @@ macro_output_short = micro_output_short %>%
 
 macro_output_mean = macro_output_short %>%
   group_by(time) %>%
-	summarize(mean_N = mean(N), mean_P = mean(P))
+	summarize(mean_N = mean(N), mean_P = mean(P), lower_N = mean_N - 2*sd(N),
+            upper_N = mean_N + 2*sd(N), lower_P = mean_P - 2*sd(P),
+            upper_P = mean_P + 2*sd(P))
 
 macro_output_mean_no_extinctions = macro_output_short %>%
   group_by(run) %>%
@@ -89,27 +91,44 @@ ef_sims  <- ode(y = init, times = 0:40, parms=parmvec, func = opt_derivs, method
 ef_sims2 = read.csv("out.txt", header=FALSE)
 names(ef_sims2) = c("time", "N", "P", "S1", "S2", "dN", "dP", "dS1", "dS2", "ddNdN", "ddPdN", "ddNdP", "ddPdP", "h", "H")
 
-## ----baseplots------------------------------------------------------------
+## ----fig1------------------------------------------------------------
 
-
-ggplot() +
-	geom_line(data = macro_output_short, mapping = aes(x = time, y = N, group = run), col="green", alpha = 0.1, lwd=1) +
-	geom_line(data = macro_output_short, mapping = aes(x = time, y = P, group = run), col="red", alpha = 0.1, lwd=1) +
-	geom_line(data = macro_output_mean, mapping = aes(x = time, y = mean_N), col="green", lwd = 1) +
-	geom_line(data = macro_output_mean, mapping = aes(x = time, y = mean_P), col="red", lwd = 1) +
-  geom_line(data = macro_output_mean_no_extinctions, mapping = aes(x = time, y = mean_N), col="green", lwd = 1) +
-	geom_line(data = macro_output_mean_no_extinctions, mapping = aes(x = time, y = mean_P), col="red", lwd = 1)
-
-
-ggplot() +
-	geom_line(data = macro_output_short, mapping = aes(x = time, y = N, group = run), col="blue", alpha = 0.05, lwd=1) +
-	geom_line(data = macro_output_short, mapping = aes(x = time, y = P, group = run), col="red", alpha = 0.05, lwd=1) +
-	geom_line(data = macro_output_mean, mapping = aes(x = time, y = mean_N), col="blue", lwd = 1, lty=2) +
-	geom_line(data = macro_output_mean, mapping = aes(x = time, y = mean_P), col="red", lwd = 1, lty=2) +
+ODEplot = ggplot() +
   geom_line(data = out0, mapping = aes(x = time, y = N), col="blue", lwd=1, lty=1) +
   geom_line(data = out0, mapping = aes(x = time, y = P), col="red", lwd=1, lty=1) +
-  geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = N), col="blue", lwd=1, lty=3) +
-  geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = P), col="red", lwd=1, lty=3) +
-  theme_nr
+  annotate("text", x=c(5,23), y=c(600, 900), label = c("pathogen", "host"),
+           color = c("red", "blue"), size=5) +
+  labs(list(Title = "", x = "", y = "")) + theme_nr
+
+IBMplot = ggplot() +
+	geom_line(data = macro_output_short, mapping = aes(x = time, y = N, group = run), col="steelblue", alpha = 0.05, lwd=1) +
+	geom_line(data = macro_output_short, mapping = aes(x = time, y = P, group = run), col="tomato", alpha = 0.05, lwd=1) +
+	geom_line(data = macro_output_mean, mapping = aes(x = time, y = mean_N), col="steelblue", lwd = 1, lty=2) +
+	geom_line(data = macro_output_mean, mapping = aes(x = time, y = mean_P), col="tomato", lwd = 1, lty=2) +
+  geom_line(data = macro_output_mean, mapping = aes(x = time, y = lower_N), col="steelblue", lwd = 1, lty=3) +
+	geom_line(data = macro_output_mean, mapping = aes(x = time, y = lower_P), col="tomato", lwd = 1, lty=3) +
+  geom_line(data = macro_output_mean, mapping = aes(x = time, y = upper_N), col="steelblue", lwd = 1, lty=3) +
+	geom_line(data = macro_output_mean, mapping = aes(x = time, y = upper_P), col="tomato", lwd = 1, lty=3) +
+  labs(list(Title = "", x = "", y = "")) + theme_nr
+
+EFplot = ggplot() +
+	geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = N), col="darkblue", lwd=1, lty=6) +
+  geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = P), col="darkred", lwd=1, lty=6) +
+  labs(list(Title = "", x = "", y = "")) + theme_nr
 
 
+ALLplot = ggplot() +
+  geom_line(data = out0, mapping = aes(x = time, y = N), col="blue", lwd=1, lty=1) +
+  geom_line(data = out0, mapping = aes(x = time, y = P), col="red", lwd=1, lty=1) +
+  geom_line(data = macro_output_mean, mapping = aes(x = time, y = mean_N), col="steelblue", lwd = 1, lty=2) +
+	geom_line(data = macro_output_mean, mapping = aes(x = time, y = mean_P), col="tomato", lwd = 1, lty=2) +
+  geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = N), col="darkblue", lwd=1, lty=6) +
+  geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = P), col="darkred", lwd=1, lty=6) +
+  labs(list(Title = "", x = "", y = "")) + theme_nr
+
+
+cowplot::plot_grid(ODEplot, IBMplot, EFplot, ALLplot, ncol=2,
+                   labels = c('A', 'B', 'C', 'D'), hjust = -4, vjust = 1) +
+  draw_label('Host / Population Size', angle = 90, fontfamily = 'Lato',
+             size = 22, vjust = -23.6) +
+  draw_label('Time', fontfamily = 'Lato', size = 22, vjust = 13.3)
