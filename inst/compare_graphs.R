@@ -98,6 +98,7 @@ ODEplot = ggplot() +
   geom_line(data = out0, mapping = aes(x = time, y = P), col="red", lwd=1, lty=1) +
   annotate("text", x=c(5,23), y=c(600, 900), label = c("pathogen", "host"),
            color = c("red", "blue"), size=5) +
+  annotate("text", x = 35, y = 10, label = "ODE model", size = 5) +
   labs(list(Title = "", x = "", y = "")) + theme_nr
 
 IBMplot = ggplot() +
@@ -109,11 +110,13 @@ IBMplot = ggplot() +
 	geom_line(data = macro_output_mean, mapping = aes(x = time, y = lower_P), col="tomato", lwd = 1, lty=3) +
   geom_line(data = macro_output_mean, mapping = aes(x = time, y = upper_N), col="steelblue", lwd = 1, lty=3) +
 	geom_line(data = macro_output_mean, mapping = aes(x = time, y = upper_P), col="tomato", lwd = 1, lty=3) +
+  annotate("text", x = 35, y = 10, label = "IBM model", size = 5) +
   labs(list(Title = "", x = "", y = "")) + theme_nr
 
 EFplot = ggplot() +
 	geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = N), col="darkblue", lwd=1, lty=6) +
   geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = P), col="darkred", lwd=1, lty=6) +
+  annotate("text", x = 35, y = 10, label = "EF model", size = 5) +
   labs(list(Title = "", x = "", y = "")) + theme_nr
 
 
@@ -124,6 +127,7 @@ ALLplot = ggplot() +
 	geom_line(data = macro_output_mean, mapping = aes(x = time, y = mean_P), col="tomato", lwd = 1, lty=2) +
   geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = N), col="darkblue", lwd=1, lty=6) +
   geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = P), col="darkred", lwd=1, lty=6) +
+  annotate("text", x = 35, y = 10, label = "All", size = 5) +
   labs(list(Title = "", x = "", y = "")) + theme_nr
 
 
