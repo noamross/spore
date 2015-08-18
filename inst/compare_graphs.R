@@ -25,15 +25,10 @@ H = function(h, t, state, parms) {
   })
 }
 
-N0 = macro_state[1]
-P0 = macro_state[2]
-init = c(N = N0, P = P0, S1 = 0, S2 = 0)
-times = seq(0,40, by=1)
-
 parms0 = parms
 parms0$control_max = 0
 
-out0 = lsoda(init, times, syseq, parms0)
+out0 = ode(init, times, syseq, parms0, method="rk4")
 
 out0 = as.data.frame(out0)
 
@@ -55,7 +50,7 @@ micro_output_short = output %>%
   group_by() %>%
   mutate(time = ceiling(time)) %>%
   mutate_each(funs(na_to_0), -run, -start, -time, -control) %>%
-  filter(time <= 41)
+  filter(time <= parms$time_max + 1)
 
 macro_output_short = micro_output_short %>%
   arrange(run, time) %>%
@@ -81,13 +76,10 @@ macro_output_mean_no_extinctions = macro_output_short %>%
 
 ## ----EFsim-------------------------------------------------------------
 
-shadow_state = c(0, 0)
-time = 0
-parms$control_max = 0
 zz <- file.remove('out.txt')
 zz <- file.create('out.txt')
-parmvec = unlist(as.relistable(within(parms, {n_sims = 100000; n_sims_jacob = 100000; parallel_cores = 3; progress=interactive()})))
-ef_sims  <- ode(y = init, times = 0:40, parms=parmvec, func = opt_derivs, method = "euler")
+parmvec = unlist(as.relistable(within(parms, {n_sims = 10000; n_sims_jacob = 10000; parallel_cores = 2; control_max = 0; progress=interactive()})))
+ef_sims  <- ode(y = init, times = 0:parms$time_max, parms=parmvec, func = opt_derivs, method = "rk4")
 ef_sims2 = read.csv("out.txt", header=FALSE)
 names(ef_sims2) = c("time", "N", "P", "S1", "S2", "dN", "dP", "dS1", "dS2", "ddNdN", "ddPdN", "ddNdP", "ddPdP", "h", "H")
 
@@ -96,9 +88,10 @@ names(ef_sims2) = c("time", "N", "P", "S1", "S2", "dN", "dP", "dS1", "dS2", "ddN
 ODEplot = ggplot() +
   geom_line(data = out0, mapping = aes(x = time, y = N), col="blue", lwd=1, lty=1) +
   geom_line(data = out0, mapping = aes(x = time, y = P), col="red", lwd=1, lty=1) +
-  annotate("text", x=c(5,23), y=c(600, 900), label = c("pathogen", "host"),
+  annotate("text", x=c(2,1), y=c(100, 250), label = c("pathogen", "host"),
            color = c("red", "blue"), size=5) +
-  annotate("text", x = 35, y = 10, label = "ODE model", size = 5) +
+  annotate("text", x = 8, y = 10, label = "ODE model", size = 5) +
+  scale_x_continuous(limits = c(0,10), breaks=c(0, 2.5, 5, 7.5, 10)) +
   labs(list(Title = "", x = "", y = "")) + theme_nr
 
 IBMplot = ggplot() +
@@ -110,13 +103,15 @@ IBMplot = ggplot() +
 	geom_line(data = macro_output_mean, mapping = aes(x = time, y = lower_P), col="tomato", lwd = 1, lty=3) +
   geom_line(data = macro_output_mean, mapping = aes(x = time, y = upper_N), col="steelblue", lwd = 1, lty=3) +
 	geom_line(data = macro_output_mean, mapping = aes(x = time, y = upper_P), col="tomato", lwd = 1, lty=3) +
-  annotate("text", x = 35, y = 10, label = "IBM model", size = 5) +
+  annotate("text", x = 8, y = 10, label = "IBM model", size = 5) +
+  scale_x_continuous(limits = c(0,10), breaks=c(0, 2.5, 5, 7.5, 10)) +
   labs(list(Title = "", x = "", y = "")) + theme_nr
 
 EFplot = ggplot() +
 	geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = N), col="darkblue", lwd=1, lty=6) +
   geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = P), col="darkred", lwd=1, lty=6) +
-  annotate("text", x = 35, y = 10, label = "EF model", size = 5) +
+  annotate("text", x = 8, y = 10, label = "EF model", size = 5) +
+  scale_x_continuous(limits = c(0,10), breaks=c(0, 2.5, 5, 7.5, 10)) +
   labs(list(Title = "", x = "", y = "")) + theme_nr
 
 
@@ -127,12 +122,59 @@ ALLplot = ggplot() +
 	geom_line(data = macro_output_mean, mapping = aes(x = time, y = mean_P), col="tomato", lwd = 1, lty=2) +
   geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = N), col="darkblue", lwd=1, lty=6) +
   geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = P), col="darkred", lwd=1, lty=6) +
-  annotate("text", x = 35, y = 10, label = "All", size = 5) +
+  annotate("text", x = 8, y = 10, label = "All", size = 5) +
+  scale_x_continuous(limits = c(0,10), breaks=c(0, 2.5, 5, 7.5 + theme(text = element_text(family = 'Lato')), 10)) +
   labs(list(Title = "", x = "", y = "")) + theme_nr
 
 
-cowplot::plot_grid(ODEplot, IBMplot, EFplot, ALLplot, ncol=2,
+FIG1 = cowplot::plot_grid(ODEplot, IBMplot, EFplot, ALLplot, ncol=2,
                    labels = c('A', 'B', 'C', 'D'), hjust = -4, vjust = 1) +
-  draw_label('Host / Population Size', angle = 90, fontfamily = 'Lato',
+  draw_label('Population', angle = 90, fontfamily = 'Lato',
              size = 22, vjust = -23.6) +
   draw_label('Time', fontfamily = 'Lato', size = 22, vjust = 13.3)
+
+## ----ESAPlots----------------------------------------------------------
+
+ggplot() +
+	geom_line(data = macro_output_short, mapping = aes(x = time, y = N, group = run), col="steelblue", alpha = 0.3, lwd=1.5) +
+	geom_line(data = macro_output_short, mapping = aes(x = time, y = P, group = run), col="tomato", alpha = 0.3, lwd=1.5) +
+  scale_x_continuous(limits = c(0,10), breaks=c(0, 2.5, 5, 7.5, 10)) +
+  labs(list(Title = "", x = "", y = "")) + theme_nr +
+  theme(axis.text = element_text(size=20))
+
+ggplot() +
+ 	geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = N), col="black", lwd=3, lty=3) +
+  geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = P), col="black", lwd=3, lty=3) +
+  scale_x_continuous(limits = c(0,10), breaks=c(0, 2.5, 5, 7.5, 10)) +
+  labs(list(Title = "", x = "", y = "")) + theme_nr +
+  theme(axis.text = element_text(size=20))
+
+ggplot() +
+  geom_line(data = out0, mapping = aes(x = time, y = N), col="steelblue", lwd=2, lty=1) +
+  geom_line(data = out0, mapping = aes(x = time, y = P), col="tomato", lwd=2, lty=1) +
+ 	geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = N), col="black", lwd=3, lty=3) +
+  geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = P), col="black", lwd=3, lty=3) +
+  scale_x_continuous(limits = c(0,10), breaks=c(0, 2.5, 5, 7.5, 10)) +
+  labs(list(Title = "", x = "", y = "")) + theme_nr +
+  theme(axis.text = element_text(size=20))
+
+ggplot() +
+  geom_line(data = out0, mapping = aes(x = time, y = N), col="steelblue", lwd=2, lty=1) +
+  geom_line(data = out0, mapping = aes(x = time, y = P), col="tomato", lwd=2, lty=1) +
+ 	geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = N), col="black", lwd=3, lty=3) +
+  geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = P), col="black", lwd=3, lty=3) +
+  geom_line(data = macro_output_mean, mapping = aes(x = time, y = mean_N), col="darkblue", lwd = 2, lty=2) +
+	geom_line(data = macro_output_mean, mapping = aes(x = time, y = mean_P), col="darkred", lwd = 2, lty=2) +
+  scale_x_continuous(limits = c(0,10), breaks=c(0, 2.5, 5, 7.5, 10)) +
+  labs(list(Title = "", x = "", y = "")) + theme_nr +
+  theme(axis.text = element_text(size=20))
+
+ggplot() +
+	geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = N), col="darkblue", lwd=2, lty=6) +
+  geom_line(data = as.data.frame(ef_sims), mapping = aes(x = times, y = P), col="darkred", lwd=2, lty=6) +
+  scale_x_continuous(limits = c(0,10), breaks=c(0, 2.5, 5, 7.5, 10)) +
+  labs(list(Title = "", x = "", y = "")) + theme_nr +
+  theme(axis.text = element_text(size=20))
+
+
+

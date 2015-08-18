@@ -67,6 +67,7 @@ system.time(out_opt <- ode(y = init, times = 0:40, parms=parmvec, func = opt_der
 output = read.csv("out.txt", header=FALSE)
 names(output) = c("time", "N", "P", "S1", "S2", "dN", "dP", "dS1", "dS2", "ddNdN", "ddPdN", "ddNdP", "ddPdP", "h", "H")
 
+---
 #
 # ode_func = function(t, y, parms, shadow_state, control) {
 #   parms=relist(parms)
